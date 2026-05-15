@@ -47,7 +47,8 @@
 
     <script>
         (function() {
-            const PROXY_URL = 'https://iptv-proxy-fvwu.onrender.com';
+            // ⚡️ SUBSTITUA AQUI PELA URL DO SEU WORKER
+            const WORKER_URL = 'https://iptv-cors-proxy.exportauan659.workers.dev/';
 
             let allItems = [];
             let currentCategory = 'all';
@@ -70,15 +71,6 @@
                 statusDiv.className = `alert alert-${type}`;
                 statusDiv.style.display = 'block';
                 setTimeout(() => { statusDiv.style.display = 'none'; }, 6000);
-            }
-
-            async function checkProxy() {
-                try {
-                    const resp = await fetch(`${PROXY_URL}/`);
-                    return resp.ok;
-                } catch (e) {
-                    return false;
-                }
             }
 
             function parseM3U(text) {
@@ -119,23 +111,10 @@
             }
 
             async function fetchPlaylist(originalUrl) {
-                const proxyUrl = `${PROXY_URL}/m3u?url=${encodeURIComponent(originalUrl)}`;
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 30000);
-                try {
-                    const response = await fetch(proxyUrl, { signal: controller.signal });
-                    clearTimeout(timeoutId);
-                    if (!response.ok) {
-                        const errData = await response.json().catch(() => ({}));
-                        throw new Error(errData.error || `Erro ${response.status}`);
-                    }
-                    const text = await response.text();
-                    return text;
-                } catch (err) {
-                    clearTimeout(timeoutId);
-                    if (err.name === 'AbortError') throw new Error('Tempo esgotado (lista muito grande ou proxy lento).');
-                    throw err;
-                }
+                const proxyUrl = `${WORKER_URL}/?url=${encodeURIComponent(originalUrl)}`;
+                const response = await fetch(proxyUrl);
+                if (!response.ok) throw new Error(`Erro ${response.status}`);
+                return await response.text();
             }
 
             function filterItems() {
@@ -179,19 +158,8 @@
                 const url = urlInput.value.trim();
                 if (!url) return showStatus('Insira uma URL.', 'warning');
                 loadBtn.disabled = true;
-                loadBtn.innerHTML = '⏳ Verificando proxy...';
-                showStatus('Verificando conexão com o proxy...', 'info');
-
-                const proxyOnline = await checkProxy();
-                if (!proxyOnline) {
-                    showStatus('Proxy offline ou despertando. Aguarde alguns segundos e tente novamente.', 'warning');
-                    loadBtn.disabled = false;
-                    loadBtn.innerHTML = 'Carregar Lista';
-                    return;
-                }
-
                 loadBtn.innerHTML = '⏳ Baixando lista...';
-                showStatus('Baixando lista, pode levar alguns segundos...', 'info');
+                showStatus('Baixando lista...', 'info');
                 try {
                     const data = await fetchPlaylist(url);
                     allItems = parseM3U(data);
@@ -216,10 +184,12 @@
                 if (hls) { hls.destroy(); hls = null; }
                 videoPlayer.src = '';
 
+                const streamUrl = `${WORKER_URL}/video?url=${encodeURIComponent(url)}`;
+
                 if (url.toLowerCase().includes('.m3u8')) {
                     if (Hls.isSupported()) {
                         hls = new Hls();
-                        hls.loadSource(url);
+                        hls.loadSource(streamUrl);
                         hls.attachMedia(videoPlayer);
                         hls.on(Hls.Events.MANIFEST_PARSED, () => videoPlayer.play().catch(() => {}));
                         hls.on(Hls.Events.ERROR, (event, data) => {
@@ -232,13 +202,13 @@
                             }
                         });
                     } else if (videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
-                        videoPlayer.src = url;
+                        videoPlayer.src = streamUrl;
                         videoPlayer.play().catch(() => {});
                     } else {
                         playerErrorDiv.textContent = 'Navegador não suporta HLS.';
                     }
                 } else {
-                    videoPlayer.src = url;
+                    videoPlayer.src = streamUrl;
                     videoPlayer.play().catch(() => {});
                 }
                 videoPlayer.onerror = () => {
