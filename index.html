@@ -16,7 +16,8 @@
         .player-container.active { display: flex; }
         .player-container video { width: 100%; max-height: 60vh; }
         .close-player { align-self: flex-end; margin-bottom: 5px; }
-        .pagination { justify-content: center; }
+        .pagination { flex-wrap: wrap; }
+        .page-jump { width: 100px; display: inline-block; }
     </style>
 </head>
 <body>
@@ -39,10 +40,10 @@
             <input type="text" id="searchInput" class="form-control mb-2" placeholder="Buscar..." style="max-width:250px;">
         </div>
 
-        <!-- Área de paginação -->
-        <div id="paginationTop" class="d-flex justify-content-between align-items-center mb-2">
+        <!-- Controles de paginação superior -->
+        <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap">
             <small id="itemCount" class="text-muted"></small>
-            <div class="btn-group" id="paginationControls"></div>
+            <div id="paginationTop" class="d-flex align-items-center gap-2"></div>
         </div>
 
         <div id="itemsGrid" class="row row-cols-2 row-cols-md-4 row-cols-lg-6 g-2"></div>
@@ -59,14 +60,13 @@
 
     <script>
         (function() {
-            // ⚡️ SUBSTITUA AQUI PELA URL DO SEU WORKER
+            // ⚡️ SUBSTITUA PELA URL DO SEU WORKER
             const WORKER_URL = 'https://iptv-cors-proxy.exportauan659.workers.dev';
 
-            // Configuração de paginação
             const ITEMS_PER_PAGE = 50;
 
             let allItems = [];
-            let filteredItems = [];  // resultado do filtro + busca
+            let filteredItems = [];
             let currentCategory = 'all';
             let currentSearch = '';
             let currentPage = 1;
@@ -84,7 +84,6 @@
             const playerErrorDiv = document.getElementById('playerError');
             const paginationTop = document.getElementById('paginationTop');
             const paginationBottom = document.getElementById('paginationBottom');
-            const paginationControls = document.getElementById('paginationControls');
             const itemCount = document.getElementById('itemCount');
 
             function showStatus(msg, type = 'info') {
@@ -92,6 +91,19 @@
                 statusDiv.className = `alert alert-${type}`;
                 statusDiv.style.display = 'block';
                 setTimeout(() => { statusDiv.style.display = 'none'; }, 6000);
+            }
+
+            // Categorização melhorada
+            function getCategory(item) {
+                const g = (item.group || '').toLowerCase();
+                if (g.includes('filme') || g.includes('movie') || g.includes('película') || g.includes('cinema')) return 'movie';
+                if (g.includes('série') || g.includes('serie') || g.includes('episódio') || g.includes('episodio') || g.includes('temporada')) return 'series';
+                if (g.includes('canal') || g.includes('channel') || g.includes('tv') || g.includes('live') || g.includes('esporte') || g.includes('sport') || g.includes('notícia') || g.includes('news') || g.includes('aberto') || g.includes('brasil')) return 'channel';
+                // Padrão: tentar adivinhar pelo nome (se contiver "filme", "série", etc.)
+                const name = (item.name || '').toLowerCase();
+                if (name.includes('filme') || name.includes('movie')) return 'movie';
+                if (name.includes('série') || name.includes('serie') || name.includes('episódio')) return 'series';
+                return 'channel';
             }
 
             function parseM3U(text) {
@@ -124,14 +136,6 @@
                 return items;
             }
 
-            function getCategory(item) {
-                const g = item.group.toLowerCase();
-                if (g.includes('filme') || g.includes('movie') || g.includes('película')) return 'movie';
-                if (g.includes('série') || g.includes('serie') || g.includes('series') || g.includes('tv show')) return 'series';
-                return 'channel';
-            }
-
-            // Filtra a lista completa e armazena em filteredItems
             function applyFilters() {
                 filteredItems = allItems.filter(item => {
                     if (currentCategory !== 'all' && getCategory(item) !== currentCategory) return false;
@@ -141,11 +145,9 @@
                     }
                     return true;
                 });
-                // Volta para a página 1 sempre que o filtro muda
                 currentPage = 1;
             }
 
-            // Renderiza a página atual
             function renderPage() {
                 const totalItems = filteredItems.length;
                 const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE) || 1;
@@ -154,7 +156,6 @@
                 const endIdx = Math.min(startIdx + ITEMS_PER_PAGE, totalItems);
                 const pageItems = filteredItems.slice(startIdx, endIdx);
 
-                // Limpa grid
                 itemsGrid.innerHTML = '';
                 if (pageItems.length === 0) {
                     itemsGrid.innerHTML = '<div class="col-12 text-center text-muted">Nenhum item encontrado.</div>';
@@ -178,35 +179,48 @@
                     });
                 }
 
-                // Atualiza contador e paginação
                 itemCount.textContent = `Exibindo ${startIdx+1}–${endIdx} de ${totalItems} itens`;
-                updatePaginationControls(totalPages);
+                updatePagination(totalPages);
             }
 
-            function updatePaginationControls(totalPages) {
-                const html = `
-                    <button class="btn btn-sm btn-outline-secondary" id="prevPage" ${currentPage === 1 ? 'disabled' : ''}>« Anterior</button>
-                    <span class="mx-2">Página ${currentPage} de ${totalPages}</span>
-                    <button class="btn btn-sm btn-outline-secondary" id="nextPage" ${currentPage === totalPages ? 'disabled' : ''}>Próximo »</button>
+            function updatePagination(totalPages) {
+                const createControls = (prefix) => `
+                    <div class="d-flex align-items-center gap-1">
+                        <button class="btn btn-sm btn-outline-secondary" id="${prefix}First" ${currentPage === 1 ? 'disabled' : ''}>«</button>
+                        <button class="btn btn-sm btn-outline-secondary" id="${prefix}Prev" ${currentPage === 1 ? 'disabled' : ''}>‹</button>
+                        <span class="mx-1">Página</span>
+                        <input type="number" class="form-control form-control-sm page-jump" id="${prefix}Jump" value="${currentPage}" min="1" max="${totalPages}" style="width:70px;">
+                        <span class="mx-1">de ${totalPages}</span>
+                        <button class="btn btn-sm btn-outline-secondary" id="${prefix}Next" ${currentPage === totalPages ? 'disabled' : ''}>›</button>
+                        <button class="btn btn-sm btn-outline-secondary" id="${prefix}Last" ${currentPage === totalPages ? 'disabled' : ''}>»</button>
+                    </div>
                 `;
-                paginationControls.innerHTML = html;
-                paginationBottom.innerHTML = html;
 
-                // Eventos
-                document.getElementById('prevPage')?.addEventListener('click', () => {
-                    if (currentPage > 1) {
-                        currentPage--;
+                paginationTop.innerHTML = createControls('top');
+                paginationBottom.innerHTML = createControls('bottom');
+
+                const bindEvents = (prefix) => {
+                    const firstBtn = document.getElementById(`${prefix}First`);
+                    const prevBtn = document.getElementById(`${prefix}Prev`);
+                    const nextBtn = document.getElementById(`${prefix}Next`);
+                    const lastBtn = document.getElementById(`${prefix}Last`);
+                    const jumpInput = document.getElementById(`${prefix}Jump`);
+
+                    firstBtn?.addEventListener('click', () => { currentPage = 1; renderPage(); });
+                    prevBtn?.addEventListener('click', () => { if (currentPage > 1) { currentPage--; renderPage(); } });
+                    nextBtn?.addEventListener('click', () => { if (currentPage < totalPages) { currentPage++; renderPage(); } });
+                    lastBtn?.addEventListener('click', () => { currentPage = totalPages; renderPage(); });
+                    jumpInput?.addEventListener('change', () => {
+                        let p = parseInt(jumpInput.value, 10);
+                        if (isNaN(p) || p < 1) p = 1;
+                        if (p > totalPages) p = totalPages;
+                        currentPage = p;
                         renderPage();
-                        window.scrollTo({ top: 0, behavior: 'smooth' });
-                    }
-                });
-                document.getElementById('nextPage')?.addEventListener('click', () => {
-                    if (currentPage < totalPages) {
-                        currentPage++;
-                        renderPage();
-                        window.scrollTo({ top: 0, behavior: 'smooth' });
-                    }
-                });
+                    });
+                };
+
+                bindEvents('top');
+                bindEvents('bottom');
             }
 
             async function fetchPlaylist(originalUrl) {
@@ -247,35 +261,63 @@
                 if (hls) { hls.destroy(); hls = null; }
                 videoPlayer.src = '';
 
+                if (!url) {
+                    playerErrorDiv.textContent = 'URL do vídeo inválida.';
+                    return;
+                }
+
                 const streamUrl = `${WORKER_URL}/video?url=${encodeURIComponent(url)}`;
+
+                const onError = (msg) => {
+                    playerErrorDiv.textContent = msg;
+                    console.error('Erro de reprodução:', msg);
+                };
 
                 if (url.toLowerCase().includes('.m3u8')) {
                     if (Hls.isSupported()) {
-                        hls = new Hls();
+                        hls = new Hls({});
                         hls.loadSource(streamUrl);
                         hls.attachMedia(videoPlayer);
-                        hls.on(Hls.Events.MANIFEST_PARSED, () => videoPlayer.play().catch(() => {}));
+                        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                            videoPlayer.play().catch(e => onError('Erro ao iniciar: ' + e.message));
+                        });
                         hls.on(Hls.Events.ERROR, (event, data) => {
-                            console.error('HLS error:', data);
-                            playerErrorDiv.textContent = `Erro: ${data.details}`;
                             if (data.fatal) {
-                                if (data.type === Hls.ErrorTypes.NETWORK_ERROR) hls.startLoad();
-                                else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) hls.recoverMediaError();
-                                else { playerErrorDiv.textContent = 'Erro fatal.'; hls.destroy(); }
+                                switch (data.type) {
+                                    case Hls.ErrorTypes.NETWORK_ERROR:
+                                        onError('Erro de rede. Tentando reconectar...');
+                                        hls.startLoad();
+                                        break;
+                                    case Hls.ErrorTypes.MEDIA_ERROR:
+                                        onError('Erro de mídia. Tentando recuperar...');
+                                        hls.recoverMediaError();
+                                        break;
+                                    default:
+                                        onError('Erro fatal na reprodução.');
+                                        hls.destroy();
+                                        break;
+                                }
                             }
                         });
                     } else if (videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
                         videoPlayer.src = streamUrl;
-                        videoPlayer.play().catch(() => {});
+                        videoPlayer.play().catch(e => onError('Erro ao iniciar: ' + e.message));
                     } else {
-                        playerErrorDiv.textContent = 'Navegador não suporta HLS.';
+                        onError('Navegador não suporta HLS.');
                     }
                 } else {
+                    // Vídeo direto (mp4, ts, etc.)
                     videoPlayer.src = streamUrl;
-                    videoPlayer.play().catch(() => {});
+                    videoPlayer.play().catch(e => onError('Erro ao iniciar: ' + e.message));
                 }
+
                 videoPlayer.onerror = () => {
-                    playerErrorDiv.textContent = `Erro de reprodução: ${videoPlayer.error?.message || 'desconhecido'}`;
+                    const err = videoPlayer.error;
+                    if (err) {
+                        onError(`Erro ${err.code}: ${err.message || 'desconhecido'}`);
+                    } else {
+                        onError('Erro de reprodução desconhecido.');
+                    }
                 };
             }
 
@@ -288,7 +330,6 @@
                 playerErrorDiv.textContent = '';
             }
 
-            // Eventos de filtro: aplicam filtro e re-renderizam
             categoryBtns.forEach(btn => btn.addEventListener('click', () => {
                 categoryBtns.forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
