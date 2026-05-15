@@ -16,6 +16,7 @@
         .player-container.active { display: flex; }
         .player-container video { width: 100%; max-height: 60vh; }
         .close-player { align-self: flex-end; margin-bottom: 5px; }
+        .pagination { justify-content: center; }
     </style>
 </head>
 <body>
@@ -37,8 +38,19 @@
             </div>
             <input type="text" id="searchInput" class="form-control mb-2" placeholder="Buscar..." style="max-width:250px;">
         </div>
+
+        <!-- Área de paginação -->
+        <div id="paginationTop" class="d-flex justify-content-between align-items-center mb-2">
+            <small id="itemCount" class="text-muted"></small>
+            <div class="btn-group" id="paginationControls"></div>
+        </div>
+
         <div id="itemsGrid" class="row row-cols-2 row-cols-md-4 row-cols-lg-6 g-2"></div>
+
+        <!-- Paginação inferior -->
+        <div id="paginationBottom" class="d-flex justify-content-center mt-3"></div>
     </div>
+
     <div id="playerContainer" class="player-container">
         <button id="closePlayer" class="btn btn-sm btn-light close-player">✖ Fechar</button>
         <video id="videoPlayer" controls playsinline></video>
@@ -50,9 +62,14 @@
             // ⚡️ SUBSTITUA AQUI PELA URL DO SEU WORKER
             const WORKER_URL = 'https://iptv-cors-proxy.exportauan659.workers.dev';
 
+            // Configuração de paginação
+            const ITEMS_PER_PAGE = 50;
+
             let allItems = [];
+            let filteredItems = [];  // resultado do filtro + busca
             let currentCategory = 'all';
             let currentSearch = '';
+            let currentPage = 1;
             let hls = null;
 
             const urlInput = document.getElementById('urlInput');
@@ -65,6 +82,10 @@
             const videoPlayer = document.getElementById('videoPlayer');
             const closePlayerBtn = document.getElementById('closePlayer');
             const playerErrorDiv = document.getElementById('playerError');
+            const paginationTop = document.getElementById('paginationTop');
+            const paginationBottom = document.getElementById('paginationBottom');
+            const paginationControls = document.getElementById('paginationControls');
+            const itemCount = document.getElementById('itemCount');
 
             function showStatus(msg, type = 'info') {
                 statusDiv.textContent = msg;
@@ -110,15 +131,9 @@
                 return 'channel';
             }
 
-            async function fetchPlaylist(originalUrl) {
-                const proxyUrl = `${WORKER_URL}?url=${encodeURIComponent(originalUrl)}`;
-                const response = await fetch(proxyUrl);
-                if (!response.ok) throw new Error(`Erro ${response.status}`);
-                return await response.text();
-            }
-
-            function filterItems() {
-                return allItems.filter(item => {
+            // Filtra a lista completa e armazena em filteredItems
+            function applyFilters() {
+                filteredItems = allItems.filter(item => {
                     if (currentCategory !== 'all' && getCategory(item) !== currentCategory) return false;
                     if (currentSearch) {
                         const s = currentSearch.toLowerCase();
@@ -126,32 +141,79 @@
                     }
                     return true;
                 });
+                // Volta para a página 1 sempre que o filtro muda
+                currentPage = 1;
             }
 
-            function renderItems() {
-                const filtered = filterItems();
+            // Renderiza a página atual
+            function renderPage() {
+                const totalItems = filteredItems.length;
+                const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE) || 1;
+                if (currentPage > totalPages) currentPage = totalPages;
+                const startIdx = (currentPage - 1) * ITEMS_PER_PAGE;
+                const endIdx = Math.min(startIdx + ITEMS_PER_PAGE, totalItems);
+                const pageItems = filteredItems.slice(startIdx, endIdx);
+
+                // Limpa grid
                 itemsGrid.innerHTML = '';
-                if (filtered.length === 0) {
+                if (pageItems.length === 0) {
                     itemsGrid.innerHTML = '<div class="col-12 text-center text-muted">Nenhum item encontrado.</div>';
-                    return;
-                }
-                filtered.forEach(item => {
-                    const col = document.createElement('div');
-                    col.className = 'col';
-                    col.innerHTML = `
-                        <div class="card item-card h-100">
-                            <img src="${item.logo || 'https://via.placeholder.com/300x200?text=Sem+Logo'}" 
-                                 class="card-img-top" alt="${item.name}" 
-                                 onerror="this.src='https://via.placeholder.com/300x200?text=Sem+Logo'">
-                            <div class="card-body p-1">
-                                <p class="item-name mb-0" title="${item.name}">${item.name}</p>
-                                <small class="text-muted">${item.group}</small>
+                } else {
+                    pageItems.forEach(item => {
+                        const col = document.createElement('div');
+                        col.className = 'col';
+                        col.innerHTML = `
+                            <div class="card item-card h-100">
+                                <img src="${item.logo || 'https://via.placeholder.com/300x200?text=Sem+Logo'}" 
+                                     class="card-img-top" alt="${item.name}" 
+                                     onerror="this.src='https://via.placeholder.com/300x200?text=Sem+Logo'">
+                                <div class="card-body p-1">
+                                    <p class="item-name mb-0" title="${item.name}">${item.name}</p>
+                                    <small class="text-muted">${item.group}</small>
+                                </div>
                             </div>
-                        </div>
-                    `;
-                    col.querySelector('.item-card').addEventListener('click', () => playStream(item.url, item.name));
-                    itemsGrid.appendChild(col);
+                        `;
+                        col.querySelector('.item-card').addEventListener('click', () => playStream(item.url, item.name));
+                        itemsGrid.appendChild(col);
+                    });
+                }
+
+                // Atualiza contador e paginação
+                itemCount.textContent = `Exibindo ${startIdx+1}–${endIdx} de ${totalItems} itens`;
+                updatePaginationControls(totalPages);
+            }
+
+            function updatePaginationControls(totalPages) {
+                const html = `
+                    <button class="btn btn-sm btn-outline-secondary" id="prevPage" ${currentPage === 1 ? 'disabled' : ''}>« Anterior</button>
+                    <span class="mx-2">Página ${currentPage} de ${totalPages}</span>
+                    <button class="btn btn-sm btn-outline-secondary" id="nextPage" ${currentPage === totalPages ? 'disabled' : ''}>Próximo »</button>
+                `;
+                paginationControls.innerHTML = html;
+                paginationBottom.innerHTML = html;
+
+                // Eventos
+                document.getElementById('prevPage')?.addEventListener('click', () => {
+                    if (currentPage > 1) {
+                        currentPage--;
+                        renderPage();
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }
                 });
+                document.getElementById('nextPage')?.addEventListener('click', () => {
+                    if (currentPage < totalPages) {
+                        currentPage++;
+                        renderPage();
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }
+                });
+            }
+
+            async function fetchPlaylist(originalUrl) {
+                const proxyUrl = `${WORKER_URL}?url=${encodeURIComponent(originalUrl)}`;
+                const response = await fetch(proxyUrl);
+                if (!response.ok) throw new Error(`Erro ${response.status}`);
+                return await response.text();
             }
 
             async function loadPlaylist() {
@@ -168,7 +230,8 @@
                     } else {
                         showStatus(`${allItems.length} itens carregados!`, 'success');
                     }
-                    renderItems();
+                    applyFilters();
+                    renderPage();
                 } catch (error) {
                     showStatus(`Erro: ${error.message}`, 'danger');
                     console.error(error);
@@ -225,17 +288,22 @@
                 playerErrorDiv.textContent = '';
             }
 
-            loadBtn.addEventListener('click', loadPlaylist);
+            // Eventos de filtro: aplicam filtro e re-renderizam
             categoryBtns.forEach(btn => btn.addEventListener('click', () => {
                 categoryBtns.forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
                 currentCategory = btn.dataset.category;
-                renderItems();
+                applyFilters();
+                renderPage();
             }));
+
             searchInput.addEventListener('input', e => {
                 currentSearch = e.target.value.trim();
-                renderItems();
+                applyFilters();
+                renderPage();
             });
+
+            loadBtn.addEventListener('click', loadPlaylist);
             closePlayerBtn.addEventListener('click', closePlayer);
         })();
     </script>
