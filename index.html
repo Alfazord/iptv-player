@@ -48,7 +48,7 @@
     <script>
         (function() {
             // ⚡️ SUBSTITUA AQUI PELA URL DO SEU WORKER
-            const WORKER_URL = 'https://iptv-cors-proxy.exportauan659.workers.dev/';
+            const WORKER_URL = 'https://iptv-cors-proxy.exportauan659.workers.dev';
 
             let allItems = [];
             let currentCategory = 'all';
@@ -111,7 +111,7 @@
             }
 
             async function fetchPlaylist(originalUrl) {
-                const proxyUrl = `${WORKER_URL}/?url=${encodeURIComponent(originalUrl)}`;
+                const proxyUrl = `${WORKER_URL}?url=${encodeURIComponent(originalUrl)}`;
                 const response = await fetch(proxyUrl);
                 if (!response.ok) throw new Error(`Erro ${response.status}`);
                 return await response.text();
