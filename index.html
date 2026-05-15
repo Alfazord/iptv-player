@@ -85,6 +85,10 @@
 
     <script>
         (function() {
+            // ---------- CONFIGURAÇÃO ----------
+            const PROXY_URL = 'https://iptv-proxy-fvwu.onrender.com'; // <-- Cole aqui o link do seu proxy
+            // ---------------------------------
+
             let allItems = [];
             let currentCategory = 'all';
             let currentSearch = '';
@@ -130,7 +134,7 @@
                             url: null
                         };
                     } else if (line && !line.startsWith('#') && currentItem) {
-                        currentItem.url = line;
+                        currentItem.url = line; // A URL já virá do proxy, então é HTTPS
                         items.push(currentItem);
                         currentItem = null;
                     }
@@ -145,11 +149,12 @@
                 return 'channel';
             }
 
-            async function fetchPlaylist(url) {
+            async function fetchPlaylist(originalUrl) {
                 showStatus('Carregando lista...', 'info');
                 try {
-                    const response = await fetch(url);
-                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    const proxyUrl = `${PROXY_URL}/m3u?url=${encodeURIComponent(originalUrl)}`;
+                    const response = await fetch(proxyUrl);
+                    if (!response.ok) throw new Error(`Erro ${response.status}`);
                     const text = await response.text();
                     return text;
                 } catch (err) {
@@ -218,12 +223,14 @@
             }
 
             function playStream(url, title) {
+                // A URL já é a do proxy (ex: https://.../video?url=...)
                 playerContainer.classList.add('active');
                 playerErrorDiv.textContent = '';
                 if (hls) { hls.destroy(); hls = null; }
                 videoPlayer.src = '';
 
-                if (url.toLowerCase().endsWith('.m3u8')) {
+                // O stream deve ser HLS ou direto. Vamos deixar o HLS.js cuidar.
+                if (url.includes('.m3u8')) {
                     if (Hls.isSupported()) {
                         hls = new Hls();
                         hls.loadSource(url);
@@ -245,6 +252,7 @@
                         playerErrorDiv.textContent = 'Navegador não suporta HLS.';
                     }
                 } else {
+                    // Vídeo direto (mp4, ts) também será servido pelo proxy
                     videoPlayer.src = url;
                     videoPlayer.play().catch(() => {});
                 }
