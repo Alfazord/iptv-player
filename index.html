@@ -1,79 +1,202 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" data-bs-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IPTV Player</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <title>IPTV Premium Player</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <style>
-        body { padding-bottom: 80px; background: #f5f5f5; }
-        .item-card { cursor: pointer; transition: transform 0.2s; }
-        .item-card:hover { transform: scale(1.03); box-shadow: 0 6px 12px rgba(0,0,0,0.3); }
-        .item-card img { height: 120px; object-fit: contain; background: #000; }
-        .item-name { font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .player-container { position: fixed; bottom: 0; left: 0; right: 0; background: #000; z-index: 1000; padding: 10px; display: none; flex-direction: column; }
-        .player-container.active { display: flex; }
-        .player-container video { width: 100%; max-height: 60vh; }
-        .close-player { align-self: flex-end; margin-bottom: 5px; }
-        .back-btn { margin-bottom: 10px; }
+        :root {
+            --card-transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        body { 
+            padding-bottom: 100px; 
+            transition: background-color 0.3s ease;
+        }
+        
+        /* Estilização Premium para os Cards */
+        .item-card { 
+            cursor: pointer; 
+            transition: var(--card-transition);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            border-radius: 12px;
+            overflow: hidden;
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(5px);
+        }
+        
+        [data-bs-theme="light"] .item-card {
+            background: #ffffff;
+            border: 1px solid rgba(0, 0, 0, 0.08);
+        }
+
+        .item-card:hover { 
+            transform: translateY(-5px); 
+            box-shadow: 0 12px 20px rgba(0,0,0,0.3);
+            border-color: var(--bs-danger);
+        }
+        
+        .img-container {
+            position: relative;
+            width: 100%;
+            height: 130px;
+            background: #0d0d0d;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .item-card img { 
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain; 
+            padding: 8px;
+            transition: var(--card-transition);
+        }
+        
+        .item-card:hover img {
+            transform: scale(1.05);
+        }
+        
+        .item-name { 
+            font-size: 0.85rem; 
+            font-weight: 600;
+            white-space: nowrap; 
+            overflow: hidden; 
+            text-overflow: ellipsis; 
+        }
+
+        /* Player Flutuante Estilo Cinema */
+        .player-container { 
+            position: fixed; 
+            bottom: 0; 
+            left: 0; 
+            right: 0; 
+            background: rgba(15, 15, 15, 0.95); 
+            backdrop-filter: blur(10px);
+            z-index: 1050; 
+            padding: 15px; 
+            display: none; 
+            flex-direction: column; 
+            border-top: 2px solid var(--bs-danger);
+            box-shadow: 0 -10px 30px rgba(0,0,0,0.5);
+        }
+        
+        .player-container.active { 
+            display: flex; 
+        }
+        
+        .player-container video { 
+            width: 100%; 
+            max-height: 50vh; 
+            border-radius: 8px;
+            background: #000;
+        }
+
+        .page-jump { 
+            width: 80px; 
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(0,0,0,0.1);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: var(--bs-secondary);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--bs-danger);
+        }
     </style>
 </head>
 <body>
-    <div class="container mt-3">
-        <h1 class="mb-3 text-center">📡 IPTV Player</h1>
-        <div class="input-group mb-3">
-            <input type="text" id="urlInput" class="form-control" 
-                   value="http://pvsrvs.xyz:80/get.php?username=897549712031832&password=0520741888369&type=m3u_plus&output=ts"
-                   placeholder="Cole a URL da lista M3U aqui...">
-            <button id="loadBtn" class="btn btn-danger">Carregar Lista</button>
+
+    <nav class="navbar navbar-expand-lg border-bottom mb-4">
+        <div class="container">
+            <span class="navbar-brand fw-bold text-danger fs-3">
+                <i class="bi bi-broadcast-pin me-2"></i>IPTV Premium
+            </span>
+            <button id="themeToggle" class="btn btn-outline-secondary rounded-circle" title="Alternar Tema">
+                <i class="bi bi-moon-stars-fill" id="themeIcon"></i>
+            </button>
         </div>
-        <div id="statusMessage" class="alert" role="alert" style="display:none;"></div>
+    </nav>
 
-        <!-- Botão de voltar (escondido inicialmente) -->
-        <button id="backButton" class="btn btn-sm btn-outline-primary back-btn" style="display:none;">⬅ Voltar para a lista principal</button>
-
-        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap">
-            <div class="btn-group mb-2" role="group" id="categoryFilters">
-                <button type="button" class="btn btn-outline-secondary active" data-category="all">Todos</button>
-                <button type="button" class="btn btn-outline-secondary" data-category="channel">📺 Canais</button>
-                <button type="button" class="btn btn-outline-secondary" data-category="movie">🎬 Filmes</button>
-                <button type="button" class="btn btn-outline-secondary" data-category="series">📺 Séries</button>
+    <div class="container">
+        <div class="card p-4 shadow-sm mb-4">
+            <label for="urlInput" class="form-label fw-semibold">Link da sua Lista M3U</label>
+            <div class="input-group">
+                <span class="input-group-text"><i class="bi bi-link-45deg"></i></span>
+                <input type="text" id="urlInput" class="form-control" 
+                       value="http://pvsrvs.xyz:80/get.php?username=897549712031832&password=0520741888369&type=m3u_plus&output=m3u8"
+                       placeholder="Cole a URL m3u8 da sua lista aqui...">
+                <button id="loadBtn" class="btn btn-danger px-4fw-bold">Carregar Lista</button>
             </div>
-            <input type="text" id="searchInput" class="form-control mb-2" placeholder="Buscar..." style="max-width:250px;">
+            <div id="statusMessage" class="alert mt-3" role="alert" style="display:none;"></div>
         </div>
 
-        <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap">
-            <small id="itemCount" class="text-muted"></small>
-            <div id="paginationTop" class="d-flex align-items-center gap-2"></div>
+        <div class="row g-3 justify-content-between align-items-center mb-4">
+            <div class="col-12 col-md-auto">
+                <div class="btn-group shadow-sm" role="group" id="categoryFilters">
+                    <button type="button" class="btn btn-outline-danger active" data-category="all">⚡ Todos</button>
+                    <button type="button" class="btn btn-outline-danger" data-category="channel"><i class="bi bi-tv me-1"></i> Canais</button>
+                    <button type="button" class="btn btn-outline-danger" data-category="movie"><i class="bi bi-film me-1"></i> Filmes</button>
+                    <button type="button" class="btn btn-outline-danger" data-category="series"><i class="bi bi-collection-play me-1"></i> Séries</button>
+                </div>
+            </div>
+            <div class="col-12 col-md-4">
+                <div class="input-group shadow-sm">
+                    <span class="input-group-text"><i class="bi bi-search"></i></span>
+                    <input type="text" id="searchInput" class="form-control" placeholder="Buscar canal, filme ou série...">
+                </div>
+            </div>
         </div>
 
-        <div id="itemsGrid" class="row row-cols-2 row-cols-md-4 row-cols-lg-6 g-2"></div>
+        <div class="d-flex justify-content-between align-items-center mb-3 bg-body-tertiary p-2 rounded shadow-sm flex-wrap gap-2">
+            <span id="itemCount" class="badge bg-secondary p-2 fs-6">Aguardando lista...</span>
+            <div id="paginationTop"></div>
+        </div>
 
-        <div id="paginationBottom" class="d-flex justify-content-center mt-3"></div>
+        <div id="itemsGrid" class="row row-cols-2 row-cols-sm-3 row-cols-md-4 row-cols-lg-6 g-3">
+            <div class="col-12 w-100 text-center py-5 text-muted">
+                <i class="bi bi-cloud-download fs-1 d-block mb-2"></i>
+                Insira o link acima e clique em "Carregar Lista" para iniciar.
+            </div>
+        </div>
+
+        <div id="paginationBottom" class="d-flex justify-content-center mt-4"></div>
     </div>
 
     <div id="playerContainer" class="player-container">
-        <button id="closePlayer" class="btn btn-sm btn-light close-player">✖ Fechar</button>
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <h5 id="playerTitle" class="m-0 text-white text-truncate pe-3" style="max-width: 80%;">Reproduzindo...</h5>
+            <button id="closePlayer" class="btn btn-sm btn-danger rounded-pill px-3"><i class="bi bi-x-lg me-1"></i>Fechar</button>
+        </div>
         <video id="videoPlayer" controls playsinline></video>
-        <div id="playerError" class="text-danger mt-1 small text-center"></div>
+        <div id="playerError" class="text-danger mt-2 small text-center fw-bold"></div>
     </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
         (function() {
-            // ⚡️ SUBSTITUA PELA URL DO SEU WORKER
+            // URL do seu Cloudflare Worker Proxy
             const WORKER_URL = 'https://iptv-cors-proxy.exportauan659.workers.dev';
+            const ITEMS_PER_PAGE = 60;
 
-            const ITEMS_PER_PAGE = 50;
-
-            // Estado da lista principal (salva para poder voltar)
-            let mainAllItems = [];
-            let currentAllItems = [];       // itens atualmente exibidos (principal ou sub-lista)
+            let allItems = [];
             let filteredItems = [];
             let currentCategory = 'all';
             let currentSearch = '';
             let currentPage = 1;
-            let isSubView = false;          // true = exibindo episódios de uma série
             let hls = null;
 
             // Elementos DOM
@@ -85,32 +208,89 @@
             const searchInput = document.getElementById('searchInput');
             const playerContainer = document.getElementById('playerContainer');
             const videoPlayer = document.getElementById('videoPlayer');
+            const playerTitle = document.getElementById('playerTitle');
             const closePlayerBtn = document.getElementById('closePlayer');
             const playerErrorDiv = document.getElementById('playerError');
             const paginationTop = document.getElementById('paginationTop');
             const paginationBottom = document.getElementById('paginationBottom');
             const itemCount = document.getElementById('itemCount');
-            const backButton = document.getElementById('backButton');
+            const themeToggle = document.getElementById('themeToggle');
+            const themeIcon = document.getElementById('themeIcon');
 
-            // Funções auxiliares
+            // Gerenciador de Dark/Light Mode Nativo
+            function initTheme() {
+                const savedTheme = localStorage.getItem('theme') || 'dark';
+                document.documentElement.setAttribute('data-bs-theme', savedTheme);
+                updateThemeIcon(savedTheme);
+            }
+
+            function updateThemeIcon(theme) {
+                if (theme === 'dark') {
+                    themeIcon.className = 'bi bi-sun-fill';
+                    themeToggle.className = 'btn btn-outline-warning rounded-circle';
+                } else {
+                    themeIcon.className = 'bi bi-moon-stars-fill';
+                    themeToggle.className = 'btn btn-outline-dark rounded-circle';
+                }
+            }
+
+            themeToggle.addEventListener('click', () => {
+                const currentTheme = document.documentElement.getAttribute('data-bs-theme');
+                const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+                document.documentElement.setAttribute('data-bs-theme', newTheme);
+                localStorage.setItem('theme', newTheme);
+                updateThemeIcon(newTheme);
+            });
+
             function showStatus(msg, type = 'info') {
                 statusDiv.textContent = msg;
                 statusDiv.className = `alert alert-${type}`;
                 statusDiv.style.display = 'block';
-                setTimeout(() => { statusDiv.style.display = 'none'; }, 6000);
+                if(type === 'success' || type === 'danger') {
+                    setTimeout(() => { statusDiv.style.display = 'none'; }, 5000);
+                }
             }
 
+            // Engine Inteligente de Separação de Categorias (Canais, Filmes e Séries)
             function getCategory(item) {
+                const url = (item.url || '').toLowerCase();
                 const g = (item.group || '').toLowerCase();
-                if (g.includes('filme') || g.includes('movie') || g.includes('película') || g.includes('cinema')) return 'movie';
-                if (g.includes('série') || g.includes('serie') || g.includes('episódio') || g.includes('episodio') || g.includes('temporada')) return 'series';
+                const name = (item.name || '').toLowerCase();
+
+                // 1. Checagem Cirúrgica pela URL estrutural Xtream Codes
+                if (url.includes('/movie/')) return 'movie';
+                if (url.includes('/series/')) return 'series';
+                if (url.includes('/live/')) return 'channel';
+
+                // 2. Análise por Extensões de Arquivos Digitais (VOD)
+                if (url.endsWith('.mp4') || url.endsWith('.mkv') || url.endsWith('.avi')) {
+                    if (g.includes('serie') || g.includes('série') || g.includes('episó') || name.includes('s01') || name.includes('e01')) return 'series';
+                    return 'movie';
+                }
+
+                // 3. Bloqueio de correspondência falsa: Palavras-chave de Canais Lineares Ao Vivo
+                const liveTvKeywords = [
+                    'filmes e series', 'telecine', 'hbo', 'sportv', 'premiere', 'espn', 'tnt', 'max', 'disney',
+                    'canais 4k', 'esportes', 'documentários', 'noticias', 'notícia', 'abertos', 'ppv', 'canal', 'channel', 'tv'
+                ];
+                if (liveTvKeywords.some(keyword => g.includes(keyword) || name.includes(keyword))) {
+                    return 'channel';
+                }
+
+                // 4. Detecção Semântica Secundária para Grupos de VOD
+                if (g.includes('vod') || g.includes('lançamento') || g.includes('cinema') || g.includes('filme') || g.includes('movie')) return 'movie';
+                if (g.includes('série') || g.includes('serie') || g.includes('temporada') || g.includes('episódio')) return 'series';
+
+                // Retorno padrão seguro
                 return 'channel';
             }
 
+            // Parser Otimizado de Arquivos M3U
             function parseM3U(text) {
                 const lines = text.split('\n');
                 const items = [];
                 let currentItem = null;
+                
                 for (let i = 0; i < lines.length; i++) {
                     const line = lines[i].trim();
                     if (line.startsWith('#EXTINF:')) {
@@ -123,9 +303,9 @@
                         const commaIndex = line.indexOf(',');
                         const title = commaIndex !== -1 ? line.substring(commaIndex + 1).trim() : '';
                         currentItem = {
-                            name: attrs['tvg-name'] || title || 'Sem nome',
+                            name: attrs['tvg-name'] || title || 'Sem Nome Disponível',
                             logo: attrs['tvg-logo'] || '',
-                            group: attrs['group-title'] || 'Sem grupo',
+                            group: attrs['group-title'] || 'Geral',
                             url: null
                         };
                     } else if (line && !line.startsWith('#') && currentItem) {
@@ -137,13 +317,12 @@
                 return items;
             }
 
-            // Aplica filtros e busca sobre currentAllItems
             function applyFilters() {
-                filteredItems = currentAllItems.filter(item => {
+                filteredItems = allItems.filter(item => {
                     if (currentCategory !== 'all' && getCategory(item) !== currentCategory) return false;
                     if (currentSearch) {
                         const s = currentSearch.toLowerCase();
-                        if (!item.name.toLowerCase().includes(s) && !item.group.toLowerCase().includes(s)) return false;
+                        return item.name.toLowerCase().includes(s) || item.group.toLowerCase().includes(s);
                     }
                     return true;
                 });
@@ -153,218 +332,120 @@
             function renderPage() {
                 const totalItems = filteredItems.length;
                 const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE) || 1;
+                
                 if (currentPage > totalPages) currentPage = totalPages;
                 const startIdx = (currentPage - 1) * ITEMS_PER_PAGE;
                 const endIdx = Math.min(startIdx + ITEMS_PER_PAGE, totalItems);
                 const pageItems = filteredItems.slice(startIdx, endIdx);
 
                 itemsGrid.innerHTML = '';
+                
                 if (pageItems.length === 0) {
-                    itemsGrid.innerHTML = '<div class="col-12 text-center text-muted">Nenhum item encontrado.</div>';
-                } else {
-                    pageItems.forEach(item => {
-                        const col = document.createElement('div');
-                        col.className = 'col';
-                        col.innerHTML = `
-                            <div class="card item-card h-100">
-                                <img src="${item.logo || 'https://via.placeholder.com/300x200?text=Sem+Logo'}" 
-                                     class="card-img-top" alt="${item.name}" 
-                                     onerror="this.src='https://via.placeholder.com/300x200?text=Sem+Logo'">
-                                <div class="card-body p-1">
-                                    <p class="item-name mb-0" title="${item.name}">${item.name}</p>
-                                    <small class="text-muted">${item.group}</small>
-                                </div>
-                            </div>
-                        `;
-                        col.querySelector('.item-card').addEventListener('click', () => handleItemClick(item));
-                        itemsGrid.appendChild(col);
-                    });
+                    itemsGrid.innerHTML = `
+                        <div class="col-12 text-center text-muted py-5">
+                            <i class="bi bi-search-heart fs-2 d-block mb-2"></i> Nenhhum resultado encontrado correspondente aos filtros.
+                        </div>`;
+                    itemCount.textContent = `Nenhum item`;
+                    updatePagination(1);
+                    return;
                 }
 
-                itemCount.textContent = `Exibindo ${startIdx+1}–${endIdx} de ${totalItems} itens`;
+                pageItems.forEach(item => {
+                    const col = document.createElement('div');
+                    col.className = 'col';
+                    
+                    const placeholderLogo = 'https://via.placeholder.com/300x200?text=IPTV+Stream';
+                    
+                    col.innerHTML = `
+                        <div class="card item-card h-100 shadow-sm">
+                            <div class="img-container">
+                                <img src="${item.logo || placeholderLogo}" alt="${item.name}" 
+                                     loading="lazy"
+                                     onerror="this.onerror=null; this.src='${placeholderLogo}';">
+                            </div>
+                            <div class="card-body p-2 d-flex flex-column justify-content-between">
+                                <p class="item-name mb-1 text-body" title="${item.name}">${item.name}</p>
+                                <span class="badge bg-secondary-subtle text-secondary-emphasis text-truncate" style="font-size:0.7rem; max-width:100%">${item.group}</span>
+                            </div>
+                        </div>
+                    `;
+                    col.querySelector('.item-card').addEventListener('click', () => playStream(item.url, item.name));
+                    itemsGrid.appendChild(col);
+                });
+
+                itemCount.textContent = `Mostrando ${startIdx + 1} a ${endIdx} de ${totalItems} resultados`;
                 updatePagination(totalPages);
-                // Mostra/oculta botão de voltar
-                backButton.style.display = isSubView ? 'inline-block' : 'none';
             }
 
             function updatePagination(totalPages) {
-                const createControls = (prefix) => `
-                    <div class="d-flex align-items-center gap-1">
-                        <button class="btn btn-sm btn-outline-secondary" id="${prefix}First" ${currentPage === 1 ? 'disabled' : ''}>«</button>
-                        <button class="btn btn-sm btn-outline-secondary" id="${prefix}Prev" ${currentPage === 1 ? 'disabled' : ''}>‹</button>
-                        <span class="mx-1">Página</span>
-                        <input type="number" class="form-control form-control-sm page-jump" id="${prefix}Jump" value="${currentPage}" min="1" max="${totalPages}" style="width:70px;">
-                        <span class="mx-1">de ${totalPages}</span>
-                        <button class="btn btn-sm btn-outline-secondary" id="${prefix}Next" ${currentPage === totalPages ? 'disabled' : ''}>›</button>
-                        <button class="btn btn-sm btn-outline-secondary" id="${prefix}Last" ${currentPage === totalPages ? 'disabled' : ''}>»</button>
+                const renderControls = (prefix) => `
+                    <div class="d-flex align-items-center gap-1 justify-content-center flex-wrap">
+                        <button class="btn btn-sm btn-outline-secondary" id="${prefix}First" ${currentPage === 1 ? 'disabled' : ''}><i class="bi bi-chevron-double-left"></i></button>
+                        <button class="btn btn-sm btn-outline-secondary" id="${prefix}Prev" ${currentPage === 1 ? 'disabled' : ''}><i class="bi bi-chevron-left"></i></button>
+                        <span class="mx-1 small">Pág.</span>
+                        <input type="number" class="form-control form-control-sm page-jump text-center" id="${prefix}Jump" value="${currentPage}" min="1" max="${totalPages}">
+                        <span class="mx-1 small">de ${totalPages}</span>
+                        <button class="btn btn-sm btn-outline-secondary" id="${prefix}Next" ${currentPage === totalPages ? 'disabled' : ''}><i class="bi bi-chevron-right"></i></button>
+                        <button class="btn btn-sm btn-outline-secondary" id="${prefix}Last" ${currentPage === totalPages ? 'disabled' : ''}><i class="bi bi-chevron-double-right"></i></button>
                     </div>
                 `;
 
-                paginationTop.innerHTML = createControls('top');
-                paginationBottom.innerHTML = createControls('bottom');
+                paginationTop.innerHTML = renderControls('top');
+                paginationBottom.innerHTML = renderControls('bottom');
 
-                const bindEvents = (prefix) => {
-                    document.getElementById(`${prefix}First`)?.addEventListener('click', () => { currentPage = 1; renderPage(); });
-                    document.getElementById(`${prefix}Prev`)?.addEventListener('click', () => { if (currentPage > 1) { currentPage--; renderPage(); } });
-                    document.getElementById(`${prefix}Next`)?.addEventListener('click', () => { if (currentPage < totalPages) { currentPage++; renderPage(); } });
-                    document.getElementById(`${prefix}Last`)?.addEventListener('click', () => { currentPage = totalPages; renderPage(); });
-                    document.getElementById(`${prefix}Jump`)?.addEventListener('change', function() {
-                        let p = parseInt(this.value, 10);
+                const bindControls = (prefix) => {
+                    document.getElementById(`${prefix}First`)?.addEventListener('click', () => { currentPage = 1; renderPage(); window.scrollTo({top: 0, behavior: 'smooth'}); });
+                    document.getElementById(`${prefix}Prev`)?.addEventListener('click', () => { if (currentPage > 1) { currentPage--; renderPage(); window.scrollTo({top: 0, behavior: 'smooth'}); } });
+                    document.getElementById(`${prefix}Next`)?.addEventListener('click', () => { if (currentPage < totalPages) { currentPage++; renderPage(); window.scrollTo({top: 0, behavior: 'smooth'}); } });
+                    document.getElementById(`${prefix}Last`)?.addEventListener('click', () => { currentPage = totalPages; renderPage(); window.scrollTo({top: 0, behavior: 'smooth'}); });
+                    
+                    document.getElementById(`${prefix}Jump`)?.addEventListener('change', (e) => {
+                        let p = parseInt(e.target.value, 10);
                         if (isNaN(p) || p < 1) p = 1;
                         if (p > totalPages) p = totalPages;
                         currentPage = p;
                         renderPage();
                     });
                 };
-                bindEvents('top');
-                bindEvents('bottom');
+
+                bindControls('top');
+                bindControls('bottom');
             }
 
-            // Decide o que fazer ao clicar: se for uma playlist (.m3u/.m3u8), carrega seus episódios
-            async function handleItemClick(item) {
-                const url = item.url;
-                if (!url) {
-                    playStream(url, item.name);
-                    return;
-                }
-
-                // Se a URL parece ser uma lista (termina com .m3u ou .m3u8), tentamos carregar como sub-lista
-                if (url.match(/\.m3u8?(\?.*)?$/i)) {
-                    showStatus('Abrindo lista de episódios...', 'info');
-                    try {
-                        const proxyUrl = `${WORKER_URL}?url=${encodeURIComponent(url)}`;
-                        const resp = await fetch(proxyUrl);
-                        if (!resp.ok) throw new Error(`Erro ${resp.status}`);
-                        const text = await resp.text();
-                        // Verifica se é realmente uma lista M3U (começa com #EXTM3U)
-                        if (text.trim().startsWith('#EXTM3U')) {
-                            const subItems = parseM3U(text);
-                            if (subItems.length === 0) {
-                                showStatus('Nenhum episódio encontrado nessa lista.', 'warning');
-                            } else {
-                                // Entra no modo sub-visualização
-                                mainAllItems = currentAllItems; // guarda a lista atual para poder voltar
-                                currentAllItems = subItems;
-                                isSubView = true;
-                                applyFilters();
-                                renderPage();
-                                showStatus(`${subItems.length} episódios carregados.`, 'success');
-                                return;
-                            }
-                        } else {
-                            // Não é uma lista, tenta reproduzir como vídeo normal
-                            playStream(url, item.name);
-                            return;
-                        }
-                    } catch (err) {
-                        showStatus('Falha ao carregar sub-lista: ' + err.message, 'danger');
-                        // Tenta reproduzir mesmo assim (pode ser um stream .m3u8 que deu erro de fetch)
-                        playStream(url, item.name);
-                        return;
-                    }
-                }
-
-                // Caso contrário, tenta reproduzir como vídeo
-                playStream(url, item.name);
-            }
-
-            // Reproduz um stream (aprimorado)
-            function playStream(url, title) {
-                playerContainer.classList.add('active');
-                playerErrorDiv.textContent = '';
-                if (hls) { hls.destroy(); hls = null; }
-                videoPlayer.src = '';
-
-                if (!url) {
-                    playerErrorDiv.textContent = 'URL inválida.';
-                    return;
-                }
-
-                const streamUrl = `${WORKER_URL}/video?url=${encodeURIComponent(url)}`;
-
-                const onError = (msg) => {
-                    playerErrorDiv.textContent = msg;
-                    console.error('Erro de reprodução:', msg);
-                };
-
-                // Se é HLS (.m3u8 ou sem extensão mas assumimos HLS)
-                if (url.toLowerCase().includes('.m3u8') || url.toLowerCase().includes('.m3u')) {
-                    if (Hls.isSupported()) {
-                        hls = new Hls();
-                        hls.loadSource(streamUrl);
-                        hls.attachMedia(videoPlayer);
-                        hls.on(Hls.Events.MANIFEST_PARSED, () => {
-                            videoPlayer.play().catch(e => onError('Erro ao iniciar: ' + e.message));
-                        });
-                        hls.on(Hls.Events.ERROR, (event, data) => {
-                            if (data.fatal) {
-                                switch (data.type) {
-                                    case Hls.ErrorTypes.NETWORK_ERROR:
-                                        onError('Erro de rede. Tentando reconectar...');
-                                        hls.startLoad();
-                                        break;
-                                    case Hls.ErrorTypes.MEDIA_ERROR:
-                                        onError('Erro de mídia. Tentando recuperar...');
-                                        hls.recoverMediaError();
-                                        break;
-                                    default:
-                                        onError('Erro fatal na reprodução.');
-                                        hls.destroy();
-                                        break;
-                                }
-                            }
-                        });
-                    } else if (videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
-                        videoPlayer.src = streamUrl;
-                        videoPlayer.play().catch(e => onError('Erro ao iniciar: ' + e.message));
-                    } else {
-                        onError('Navegador não suporta HLS.');
-                    }
-                } else {
-                    // MP4, TS etc.
-                    videoPlayer.src = streamUrl;
-                    videoPlayer.play().catch(e => onError('Erro ao iniciar: ' + e.message));
-                }
-
-                videoPlayer.onerror = () => {
-                    const err = videoPlayer.error;
-                    if (err) {
-                        onError(`Erro ${err.code}: ${err.message || 'desconhecido'}`);
-                    } else {
-                        onError('Erro de reprodução desconhecido.');
-                    }
-                };
-            }
-
-            // Busca lista M3U via Worker
             async function fetchPlaylist(originalUrl) {
                 const proxyUrl = `${WORKER_URL}?url=${encodeURIComponent(originalUrl)}`;
                 const response = await fetch(proxyUrl);
-                if (!response.ok) throw new Error(`Erro ${response.status}`);
+                if (!response.ok) throw new Error(`Status HTTP Erro ${response.status}`);
                 return await response.text();
             }
 
-            // Carrega a lista principal
             async function loadPlaylist() {
-                const url = urlInput.value.trim();
-                if (!url) return showStatus('Insira uma URL.', 'warning');
+                let url = urlInput.value.trim();
+                if (!url) return showStatus('Por favor, insira um link de lista M3U válido.', 'warning');
+                
+                // Força m3u8 caso o usuário cole link em formato legado .ts por engano
+                if(url.includes('output=ts')) {
+                    url = url.replace('output=ts', 'output=m3u8');
+                    urlInput.value = url;
+                }
+
                 loadBtn.disabled = true;
-                loadBtn.innerHTML = '⏳ Baixando lista...';
-                showStatus('Baixando lista...', 'info');
+                loadBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Analisando...';
+                showStatus('Baixando e processando os metadados da lista M3U...', 'info');
+                
                 try {
                     const data = await fetchPlaylist(url);
-                    mainAllItems = parseM3U(data);
-                    currentAllItems = mainAllItems;
-                    isSubView = false;
-                    if (mainAllItems.length === 0) {
-                        showStatus('Nenhum item encontrado.', 'warning');
+                    allItems = parseM3U(data);
+                    
+                    if (allItems.length === 0) {
+                        showStatus('Nenhum canal ou mídia foi encontrado dentro deste arquivo de lista.', 'warning');
                     } else {
-                        showStatus(`${mainAllItems.length} itens carregados!`, 'success');
+                        showStatus(`Sucesso! ${allItems.length} mídias sincronizadas com sucesso.`, 'success');
                     }
                     applyFilters();
                     renderPage();
                 } catch (error) {
-                    showStatus(`Erro: ${error.message}`, 'danger');
+                    showStatus(`Falha de Conexão Proxy CORS: ${error.message}`, 'danger');
                     console.error(error);
                 } finally {
                     loadBtn.disabled = false;
@@ -372,20 +453,92 @@
                 }
             }
 
-            // Voltar à lista principal (quando estiver em sub-visualização)
-            function backToMain() {
-                if (!isSubView) return;
-                currentAllItems = mainAllItems;
-                isSubView = false;
-                applyFilters();
-                renderPage();
-                showStatus('Voltando à lista principal', 'info');
+            // Motor de Reprodução de Vídeo Inteligente (Sem Interrupções de Formato Erro 4)
+            function playStream(url, title) {
+                playerContainer.classList.add('active');
+                playerTitle.textContent = title;
+                playerErrorDiv.textContent = '';
+                
+                if (hls) { hls.destroy(); hls = null; }
+                videoPlayer.removeAttribute('src');
+                videoPlayer.load();
+
+                if (!url) {
+                    playerErrorDiv.textContent = 'Erro de parâmetro: A URL do stream de transmissão está vazia.';
+                    return;
+                }
+
+                const streamUrl = `${WORKER_URL}/video?url=${encodeURIComponent(url)}`;
+                
+                // Detecta se precisa rodar HLS (se contiver extensão m3u8 ou se for um link dinâmico sem extensão explícita de vídeo)
+                const isHls = url.toLowerCase().includes('.m3u8') || !url.match(/\.(mp4|mkv|avi|ts)$/i);
+
+                const handlePlaybackError = (msg) => {
+                    playerErrorDiv.textContent = msg;
+                };
+
+                if (isHls) {
+                    if (Hls.isSupported()) {
+                        hls = new Hls({
+                            maxMaxBufferLength: 15,
+                            enableWorker: true
+                        });
+                        hls.loadSource(streamUrl);
+                        hls.attachMedia(videoPlayer);
+                        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                            videoPlayer.play().catch(e => handlePlaybackError('Bloqueio do Navegador: Clique no Play manualmente (' + e.message + ')'));
+                        });
+                        hls.on(Hls.Events.ERROR, (event, data) => {
+                            if (data.fatal) {
+                                switch (data.type) {
+                                    case Hls.ErrorTypes.NETWORK_ERROR:
+                                        handlePlaybackError('Instabilidade de Rede detectada. Tentando reconectar transmissão...');
+                                        hls.startLoad();
+                                        break;
+                                    case Hls.ErrorTypes.MEDIA_ERROR:
+                                        handlePlaybackError('Falha de Sincronia de Mídia. Recuperando buffer...');
+                                        hls.recoverMediaError();
+                                        break;
+                                    default:
+                                        handlePlaybackError('Este canal/mídia não pode ser descriptografado pelo reprodutor.');
+                                        hls.destroy();
+                                        break;
+                                }
+                            }
+                        });
+                    } else if (videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
+                        // Engine nativo para Safari e iOS
+                        videoPlayer.src = streamUrl;
+                        videoPlayer.addEventListener('loadedmetadata', () => {
+                            videoPlayer.play().catch(e => handlePlaybackError('Falha na reprodução de mídia nativa: ' + e.message));
+                        });
+                    } else {
+                        handlePlaybackError('Seu navegador atual não possui suporte a codecs de transmissão HLS nativo ou gerenciado.');
+                    }
+                } else {
+                    // Vídeos diretos MP4, MKV ou TS via decodificação nativa do browser
+                    videoPlayer.src = streamUrl;
+                    videoPlayer.play().catch(e => handlePlaybackError('Erro ao inicializar arquivo de vídeo direto: ' + e.message));
+                }
+
+                videoPlayer.onerror = () => {
+                    const err = videoPlayer.error;
+                    if (err) {
+                        handlePlaybackError(`Erro de decodificação de Mídia (Código ${err.code}): Verifique se o link ainda está ativo.`);
+                    }
+                };
             }
 
-            // Eventos
-            loadBtn.addEventListener('click', loadPlaylist);
-            backButton.addEventListener('click', backToMain);
+            function closePlayer() {
+                videoPlayer.pause();
+                if (hls) { hls.destroy(); hls = null; }
+                videoPlayer.removeAttribute('src');
+                videoPlayer.load();
+                playerContainer.classList.remove('active');
+                playerErrorDiv.textContent = '';
+            }
 
+            // Event Listeners dos Filtros de Categoria
             categoryBtns.forEach(btn => btn.addEventListener('click', () => {
                 categoryBtns.forEach(b => b.classList.remove('active'));
                 btn.classList.add('active');
@@ -394,20 +547,22 @@
                 renderPage();
             }));
 
+            // Event Listener de Busca Instantânea com Debounce Manual
+            let searchTimeout;
             searchInput.addEventListener('input', e => {
-                currentSearch = e.target.value.trim();
-                applyFilters();
-                renderPage();
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(() => {
+                    currentSearch = e.target.value.trim();
+                    applyFilters();
+                    renderPage();
+                }, 300);
             });
 
-            closePlayerBtn.addEventListener('click', () => {
-                videoPlayer.pause();
-                if (hls) { hls.destroy(); hls = null; }
-                videoPlayer.removeAttribute('src');
-                videoPlayer.load();
-                playerContainer.classList.remove('active');
-                playerErrorDiv.textContent = '';
-            });
+            loadBtn.addEventListener('click', loadPlaylist);
+            closePlayerBtn.addEventListener('click', closePlayer);
+            
+            // Inicialização da Página
+            initTheme();
         })();
     </script>
 </body>
