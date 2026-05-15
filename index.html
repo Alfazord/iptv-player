@@ -16,8 +16,7 @@
         .player-container.active { display: flex; }
         .player-container video { width: 100%; max-height: 60vh; }
         .close-player { align-self: flex-end; margin-bottom: 5px; }
-        .pagination { flex-wrap: wrap; }
-        .page-jump { width: 100px; display: inline-block; }
+        .back-btn { margin-bottom: 10px; }
     </style>
 </head>
 <body>
@@ -30,6 +29,10 @@
             <button id="loadBtn" class="btn btn-danger">Carregar Lista</button>
         </div>
         <div id="statusMessage" class="alert" role="alert" style="display:none;"></div>
+
+        <!-- Botão de voltar (escondido inicialmente) -->
+        <button id="backButton" class="btn btn-sm btn-outline-primary back-btn" style="display:none;">⬅ Voltar para a lista principal</button>
+
         <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap">
             <div class="btn-group mb-2" role="group" id="categoryFilters">
                 <button type="button" class="btn btn-outline-secondary active" data-category="all">Todos</button>
@@ -40,7 +43,6 @@
             <input type="text" id="searchInput" class="form-control mb-2" placeholder="Buscar..." style="max-width:250px;">
         </div>
 
-        <!-- Controles de paginação superior -->
         <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap">
             <small id="itemCount" class="text-muted"></small>
             <div id="paginationTop" class="d-flex align-items-center gap-2"></div>
@@ -48,7 +50,6 @@
 
         <div id="itemsGrid" class="row row-cols-2 row-cols-md-4 row-cols-lg-6 g-2"></div>
 
-        <!-- Paginação inferior -->
         <div id="paginationBottom" class="d-flex justify-content-center mt-3"></div>
     </div>
 
@@ -60,18 +61,22 @@
 
     <script>
         (function() {
-            // ⚡️ SUBSTITUIR URL: DEVO SEMPRE ME LEMBRAR
+            // ⚡️ SUBSTITUA PELA URL DO SEU WORKER
             const WORKER_URL = 'https://iptv-cors-proxy.exportauan659.workers.dev';
 
             const ITEMS_PER_PAGE = 50;
 
-            let allItems = [];
+            // Estado da lista principal (salva para poder voltar)
+            let mainAllItems = [];
+            let currentAllItems = [];       // itens atualmente exibidos (principal ou sub-lista)
             let filteredItems = [];
             let currentCategory = 'all';
             let currentSearch = '';
             let currentPage = 1;
+            let isSubView = false;          // true = exibindo episódios de uma série
             let hls = null;
 
+            // Elementos DOM
             const urlInput = document.getElementById('urlInput');
             const loadBtn = document.getElementById('loadBtn');
             const statusDiv = document.getElementById('statusMessage');
@@ -85,7 +90,9 @@
             const paginationTop = document.getElementById('paginationTop');
             const paginationBottom = document.getElementById('paginationBottom');
             const itemCount = document.getElementById('itemCount');
+            const backButton = document.getElementById('backButton');
 
+            // Funções auxiliares
             function showStatus(msg, type = 'info') {
                 statusDiv.textContent = msg;
                 statusDiv.className = `alert alert-${type}`;
@@ -93,16 +100,10 @@
                 setTimeout(() => { statusDiv.style.display = 'none'; }, 6000);
             }
 
-            // Categorização melhorada
             function getCategory(item) {
                 const g = (item.group || '').toLowerCase();
                 if (g.includes('filme') || g.includes('movie') || g.includes('película') || g.includes('cinema')) return 'movie';
                 if (g.includes('série') || g.includes('serie') || g.includes('episódio') || g.includes('episodio') || g.includes('temporada')) return 'series';
-                if (g.includes('canal') || g.includes('channel') || g.includes('tv') || g.includes('live') || g.includes('esporte') || g.includes('sport') || g.includes('notícia') || g.includes('news') || g.includes('aberto') || g.includes('brasil')) return 'channel';
-                // Padrão: tentar adivinhar pelo nome (se contiver "filme", "série", etc.)
-                const name = (item.name || '').toLowerCase();
-                if (name.includes('filme') || name.includes('movie')) return 'movie';
-                if (name.includes('série') || name.includes('serie') || name.includes('episódio')) return 'series';
                 return 'channel';
             }
 
@@ -136,8 +137,9 @@
                 return items;
             }
 
+            // Aplica filtros e busca sobre currentAllItems
             function applyFilters() {
-                filteredItems = allItems.filter(item => {
+                filteredItems = currentAllItems.filter(item => {
                     if (currentCategory !== 'all' && getCategory(item) !== currentCategory) return false;
                     if (currentSearch) {
                         const s = currentSearch.toLowerCase();
@@ -174,13 +176,15 @@
                                 </div>
                             </div>
                         `;
-                        col.querySelector('.item-card').addEventListener('click', () => playStream(item.url, item.name));
+                        col.querySelector('.item-card').addEventListener('click', () => handleItemClick(item));
                         itemsGrid.appendChild(col);
                     });
                 }
 
                 itemCount.textContent = `Exibindo ${startIdx+1}–${endIdx} de ${totalItems} itens`;
                 updatePagination(totalPages);
+                // Mostra/oculta botão de voltar
+                backButton.style.display = isSubView ? 'inline-block' : 'none';
             }
 
             function updatePagination(totalPages) {
@@ -200,61 +204,71 @@
                 paginationBottom.innerHTML = createControls('bottom');
 
                 const bindEvents = (prefix) => {
-                    const firstBtn = document.getElementById(`${prefix}First`);
-                    const prevBtn = document.getElementById(`${prefix}Prev`);
-                    const nextBtn = document.getElementById(`${prefix}Next`);
-                    const lastBtn = document.getElementById(`${prefix}Last`);
-                    const jumpInput = document.getElementById(`${prefix}Jump`);
-
-                    firstBtn?.addEventListener('click', () => { currentPage = 1; renderPage(); });
-                    prevBtn?.addEventListener('click', () => { if (currentPage > 1) { currentPage--; renderPage(); } });
-                    nextBtn?.addEventListener('click', () => { if (currentPage < totalPages) { currentPage++; renderPage(); } });
-                    lastBtn?.addEventListener('click', () => { currentPage = totalPages; renderPage(); });
-                    jumpInput?.addEventListener('change', () => {
-                        let p = parseInt(jumpInput.value, 10);
+                    document.getElementById(`${prefix}First`)?.addEventListener('click', () => { currentPage = 1; renderPage(); });
+                    document.getElementById(`${prefix}Prev`)?.addEventListener('click', () => { if (currentPage > 1) { currentPage--; renderPage(); } });
+                    document.getElementById(`${prefix}Next`)?.addEventListener('click', () => { if (currentPage < totalPages) { currentPage++; renderPage(); } });
+                    document.getElementById(`${prefix}Last`)?.addEventListener('click', () => { currentPage = totalPages; renderPage(); });
+                    document.getElementById(`${prefix}Jump`)?.addEventListener('change', function() {
+                        let p = parseInt(this.value, 10);
                         if (isNaN(p) || p < 1) p = 1;
                         if (p > totalPages) p = totalPages;
                         currentPage = p;
                         renderPage();
                     });
                 };
-
                 bindEvents('top');
                 bindEvents('bottom');
             }
 
-            async function fetchPlaylist(originalUrl) {
-                const proxyUrl = `${WORKER_URL}?url=${encodeURIComponent(originalUrl)}`;
-                const response = await fetch(proxyUrl);
-                if (!response.ok) throw new Error(`Erro ${response.status}`);
-                return await response.text();
-            }
-
-            async function loadPlaylist() {
-                const url = urlInput.value.trim();
-                if (!url) return showStatus('Insira uma URL.', 'warning');
-                loadBtn.disabled = true;
-                loadBtn.innerHTML = '⏳ Baixando lista...';
-                showStatus('Baixando lista...', 'info');
-                try {
-                    const data = await fetchPlaylist(url);
-                    allItems = parseM3U(data);
-                    if (allItems.length === 0) {
-                        showStatus('Nenhum item encontrado.', 'warning');
-                    } else {
-                        showStatus(`${allItems.length} itens carregados!`, 'success');
-                    }
-                    applyFilters();
-                    renderPage();
-                } catch (error) {
-                    showStatus(`Erro: ${error.message}`, 'danger');
-                    console.error(error);
-                } finally {
-                    loadBtn.disabled = false;
-                    loadBtn.innerHTML = 'Carregar Lista';
+            // Decide o que fazer ao clicar: se for uma playlist (.m3u/.m3u8), carrega seus episódios
+            async function handleItemClick(item) {
+                const url = item.url;
+                if (!url) {
+                    playStream(url, item.name);
+                    return;
                 }
+
+                // Se a URL parece ser uma lista (termina com .m3u ou .m3u8), tentamos carregar como sub-lista
+                if (url.match(/\.m3u8?(\?.*)?$/i)) {
+                    showStatus('Abrindo lista de episódios...', 'info');
+                    try {
+                        const proxyUrl = `${WORKER_URL}?url=${encodeURIComponent(url)}`;
+                        const resp = await fetch(proxyUrl);
+                        if (!resp.ok) throw new Error(`Erro ${resp.status}`);
+                        const text = await resp.text();
+                        // Verifica se é realmente uma lista M3U (começa com #EXTM3U)
+                        if (text.trim().startsWith('#EXTM3U')) {
+                            const subItems = parseM3U(text);
+                            if (subItems.length === 0) {
+                                showStatus('Nenhum episódio encontrado nessa lista.', 'warning');
+                            } else {
+                                // Entra no modo sub-visualização
+                                mainAllItems = currentAllItems; // guarda a lista atual para poder voltar
+                                currentAllItems = subItems;
+                                isSubView = true;
+                                applyFilters();
+                                renderPage();
+                                showStatus(`${subItems.length} episódios carregados.`, 'success');
+                                return;
+                            }
+                        } else {
+                            // Não é uma lista, tenta reproduzir como vídeo normal
+                            playStream(url, item.name);
+                            return;
+                        }
+                    } catch (err) {
+                        showStatus('Falha ao carregar sub-lista: ' + err.message, 'danger');
+                        // Tenta reproduzir mesmo assim (pode ser um stream .m3u8 que deu erro de fetch)
+                        playStream(url, item.name);
+                        return;
+                    }
+                }
+
+                // Caso contrário, tenta reproduzir como vídeo
+                playStream(url, item.name);
             }
 
+            // Reproduz um stream (aprimorado)
             function playStream(url, title) {
                 playerContainer.classList.add('active');
                 playerErrorDiv.textContent = '';
@@ -262,7 +276,7 @@
                 videoPlayer.src = '';
 
                 if (!url) {
-                    playerErrorDiv.textContent = 'URL do vídeo inválida.';
+                    playerErrorDiv.textContent = 'URL inválida.';
                     return;
                 }
 
@@ -273,9 +287,10 @@
                     console.error('Erro de reprodução:', msg);
                 };
 
-                if (url.toLowerCase().includes('.m3u8')) {
+                // Se é HLS (.m3u8 ou sem extensão mas assumimos HLS)
+                if (url.toLowerCase().includes('.m3u8') || url.toLowerCase().includes('.m3u')) {
                     if (Hls.isSupported()) {
-                        hls = new Hls({});
+                        hls = new Hls();
                         hls.loadSource(streamUrl);
                         hls.attachMedia(videoPlayer);
                         hls.on(Hls.Events.MANIFEST_PARSED, () => {
@@ -306,7 +321,7 @@
                         onError('Navegador não suporta HLS.');
                     }
                 } else {
-                    // Vídeo direto (mp4, ts, etc.)
+                    // MP4, TS etc.
                     videoPlayer.src = streamUrl;
                     videoPlayer.play().catch(e => onError('Erro ao iniciar: ' + e.message));
                 }
@@ -321,14 +336,55 @@
                 };
             }
 
-            function closePlayer() {
-                videoPlayer.pause();
-                if (hls) { hls.destroy(); hls = null; }
-                videoPlayer.removeAttribute('src');
-                videoPlayer.load();
-                playerContainer.classList.remove('active');
-                playerErrorDiv.textContent = '';
+            // Busca lista M3U via Worker
+            async function fetchPlaylist(originalUrl) {
+                const proxyUrl = `${WORKER_URL}?url=${encodeURIComponent(originalUrl)}`;
+                const response = await fetch(proxyUrl);
+                if (!response.ok) throw new Error(`Erro ${response.status}`);
+                return await response.text();
             }
+
+            // Carrega a lista principal
+            async function loadPlaylist() {
+                const url = urlInput.value.trim();
+                if (!url) return showStatus('Insira uma URL.', 'warning');
+                loadBtn.disabled = true;
+                loadBtn.innerHTML = '⏳ Baixando lista...';
+                showStatus('Baixando lista...', 'info');
+                try {
+                    const data = await fetchPlaylist(url);
+                    mainAllItems = parseM3U(data);
+                    currentAllItems = mainAllItems;
+                    isSubView = false;
+                    if (mainAllItems.length === 0) {
+                        showStatus('Nenhum item encontrado.', 'warning');
+                    } else {
+                        showStatus(`${mainAllItems.length} itens carregados!`, 'success');
+                    }
+                    applyFilters();
+                    renderPage();
+                } catch (error) {
+                    showStatus(`Erro: ${error.message}`, 'danger');
+                    console.error(error);
+                } finally {
+                    loadBtn.disabled = false;
+                    loadBtn.innerHTML = 'Carregar Lista';
+                }
+            }
+
+            // Voltar à lista principal (quando estiver em sub-visualização)
+            function backToMain() {
+                if (!isSubView) return;
+                currentAllItems = mainAllItems;
+                isSubView = false;
+                applyFilters();
+                renderPage();
+                showStatus('Voltando à lista principal', 'info');
+            }
+
+            // Eventos
+            loadBtn.addEventListener('click', loadPlaylist);
+            backButton.addEventListener('click', backToMain);
 
             categoryBtns.forEach(btn => btn.addEventListener('click', () => {
                 categoryBtns.forEach(b => b.classList.remove('active'));
@@ -344,8 +400,14 @@
                 renderPage();
             });
 
-            loadBtn.addEventListener('click', loadPlaylist);
-            closePlayerBtn.addEventListener('click', closePlayer);
+            closePlayerBtn.addEventListener('click', () => {
+                videoPlayer.pause();
+                if (hls) { hls.destroy(); hls = null; }
+                videoPlayer.removeAttribute('src');
+                videoPlayer.load();
+                playerContainer.classList.remove('active');
+                playerErrorDiv.textContent = '';
+            });
         })();
     </script>
 </body>
