@@ -108,7 +108,10 @@
 
     <script>
         (function() {
+            // As duas rotas fundamentais do nosso Roteador Híbrido
             const WORKER_URL = 'https://iptv-cors-proxy.exportauan659.workers.dev';
+            const CLOUD_RUN_URL = 'https://global-iptv-player-226149222589.us-east1.run.app';
+            
             const ITEMS_PER_PAGE = 60;
 
             let allItems = [];
@@ -156,45 +159,37 @@
                 statusDiv.style.display = 'block';
             }
 
-            // Engine Inteligente de Categorias e "Cão de Guarda" Nível 1
             function getCategory(url, group, name) {
                 url = (url || '').toLowerCase();
                 group = (group || '').toLowerCase();
                 name = (name || '').toLowerCase();
 
-                // 1. O CÃO DE GUARDA: PRIORIDADE MÁXIMA
-                // Se for um grupo de TV ao vivo ou canal 24h, joga pra aba 'Canais' e encerra!
                 const liveTvKeywords = [
                     '24hrs', '24h', '24 horas', 'cine series', 'cine tv', 'filmes e series', 
                     'telecine', 'hbo', 'sportv', 'premiere', 'espn', 'tnt', 'max', 'disney', 
                     'canais 4k', 'esportes', 'documentários', 'noticias', 'notícia', 'abertos', 'ppv', 
-                    'globo', 'sbt', 'record', 'band', 'sessao cinema', 'sessão cinema', 'xxx adultos', 'adultos', 'xxx'
+                    'globo', 'sbt', 'record', 'band'
                 ];
                 
                 if (liveTvKeywords.some(keyword => group.includes(keyword) || name.includes(keyword))) {
                     return 'channel'; 
                 }
 
-                // 2. Verificação pela URL (Padrão Xtream Codes)
                 if (url.includes('/movie/')) return 'movie';
                 if (url.includes('/series/')) return 'series';
                 if (url.includes('/live/')) return 'channel';
 
-                // 3. Verificação por extensão de vídeo (VODs)
                 if (url.match(/\.(mp4|mkv|avi)$/i)) {
                     if (group.includes('serie') || group.includes('série') || name.match(/[S|T]\d+[E|x]\d+/i)) return 'series';
                     return 'movie';
                 }
 
-                // 4. Detecção semântica final
                 if (group.includes('vod') || group.includes('lançamento') || group.includes('cinema') || group.includes('filme')) return 'movie';
                 if (group.includes('série') || group.includes('serie') || group.includes('temporada')) return 'series';
 
-                // Se nada bater, por padrão é canal ao vivo
                 return 'channel';
             }
 
-            // O MÁGICO: Agrupador de Séries
             function processAndGroupM3U(text) {
                 const lines = text.split('\n');
                 const rawItems = [];
@@ -209,7 +204,6 @@
                         while ((match = attrRegex.exec(line)) !== null) attrs[match[1]] = match[2];
                         
                         const title = line.substring(line.indexOf(',') + 1).trim();
-                        // Conserta Mixed Content forçando HTTPS na Logo
                         let safeLogo = (attrs['tvg-logo'] || '').replace(/^http:\/\//i, 'https://');
                         
                         currentItem = {
@@ -225,7 +219,6 @@
                     }
                 }
 
-                // Fase 2: Agrupar Séries
                 const processed = [];
                 const seriesMap = {};
 
@@ -234,12 +227,11 @@
                     item.category = cat;
 
                     if (cat === 'series') {
-                        // Tenta achar padrões como: Chaves S01E05, T01 EP 05, S1 E5
                         const regexS0E0 = /(.*?)\s*[-_:]?\s*[S|T]0*(\d+)\s*[-_]?\s*[E|EP|x]\s*0*(\d+)(.*)/i;
                         const match = item.name.match(regexS0E0);
 
                         if (match) {
-                            const seriesName = match[1].trim() || item.group; // Usa o nome ou o grupo
+                            const seriesName = match[1].trim() || item.group;
                             const seasonNum = parseInt(match[2], 10);
                             const episodeNum = parseInt(match[3], 10);
 
@@ -265,10 +257,10 @@
                                 cleanName: `Episódio ${episodeNum} ${match[4] ? '- ' + match[4].trim() : ''}`
                             });
                         } else {
-                            processed.push(item); // Se não bater o regex, envia solto
+                            processed.push(item);
                         }
                     } else {
-                        processed.push(item); // Canais e filmes
+                        processed.push(item);
                     }
                 });
 
@@ -301,7 +293,6 @@
                     col.className = 'col';
                     const placeholder = 'https://via.placeholder.com/300x200?text=IPTV';
                     
-                    // Se for pasta de série, mostra ícone especial
                     const folderBadge = item.isSeriesFolder ? `<span class="badge bg-danger position-absolute top-0 end-0 m-2"><i class="bi bi-folder2-open"></i> Série</span>` : '';
 
                     col.innerHTML = `
@@ -331,7 +322,6 @@
                 updatePagination(totalPages);
             }
 
-            // Interface do Modal de Temporadas
             function openSeriesModal(series) {
                 seriesModalInstance = new bootstrap.Modal(document.getElementById('seriesModal'));
                 document.getElementById('seriesModalTitle').textContent = series.name;
@@ -340,13 +330,11 @@
                 const contentContainer = document.getElementById('seasonContent');
                 tabsContainer.innerHTML = ''; contentContainer.innerHTML = '';
 
-                // Ordena temporadas
                 const seasons = Object.keys(series.seasons).map(Number).sort((a,b)=>a-b);
                 
                 seasons.forEach((seasonNum, index) => {
                     const isActive = index === 0 ? 'active' : '';
                     
-                    // Tab Btn
                     tabsContainer.innerHTML += `
                         <li class="nav-item" role="presentation">
                             <button class="nav-link ${isActive} rounded-pill border mx-1" id="tab-s${seasonNum}" data-bs-toggle="pill" data-bs-target="#s${seasonNum}" type="button">
@@ -354,7 +342,6 @@
                             </button>
                         </li>`;
                     
-                    // Episodios
                     const episodesList = series.seasons[seasonNum].sort((a,b) => a.epNumber - b.epNumber);
                     let epHtml = `<div class="list-group list-group-flush">`;
                     episodesList.forEach(ep => {
@@ -374,7 +361,6 @@
                 seriesModalInstance.show();
             }
 
-            // Handler global pro HTML chamar do Modal
             window.startEpisode = function(url, title) {
                 if(seriesModalInstance) seriesModalInstance.hide();
                 playStream(url, title);
@@ -404,7 +390,9 @@
                 
                 loadBtn.disabled = true; loadBtn.innerHTML = 'Processando...';
                 try {
-                    const response = await fetch(`${WORKER_URL}?url=${encodeURIComponent(url)}`);
+                    // Usamos a API do Cloud Run para puxar a lista inicial e fugir do Tarpit
+                    const fetchUrl = `${CLOUD_RUN_URL}/api/proxy?url=${encodeURIComponent(url)}`;
+                    const response = await fetch(fetchUrl);
                     if (!response.ok) throw new Error(`HTTP ${response.status}`);
                     const data = await response.text();
                     
@@ -432,7 +420,7 @@
                 videoPlayer.removeAttribute('src'); 
                 videoPlayer.load();
 
-                // Reescreve inteligentemente fluxos ao vivo
+                // Padronização e conversão de .ts para .m3u8 em fluxos ao vivo
                 let targetUrl = url;
                 if (targetUrl.includes('output=ts')) {
                     targetUrl = targetUrl.replace('output=ts', 'output=m3u8');
@@ -443,12 +431,16 @@
                 }
 
                 const isM3u8 = targetUrl.toLowerCase().includes('.m3u8') || targetUrl.toLowerCase().includes('type=m3u8') || targetUrl.toLowerCase().includes('output=m3u8');
-                
-                // Monta o streamUrl passando a URL corrigida pelo proxy CORS do Worker
-                const streamUrl = `${WORKER_URL}/video?url=${encodeURIComponent(targetUrl)}`;
+
+                // ==========================================
+                // O SISTEMA DE ROTEAMENTO HÍBRIDO AQUI!
+                // ==========================================
+                // Se for M3U8 (Canal ao Vivo), roteia para o Cloud Run. 
+                // Se for VOD (.mp4 / .mkv), roteia para o Cloudflare Worker.
+                const proxyBase = isM3u8 ? `${CLOUD_RUN_URL}/api/video` : `${WORKER_URL}/video`;
+                const streamUrl = `${proxyBase}?url=${encodeURIComponent(targetUrl)}`;
 
                 if (isM3u8 && Hls.isSupported()) {
-                    // CONFIGURAÇÃO DE SEGURANÇA E CACHE DO HLS.JS (INCLUINDO withCredentials)
                     hls = new Hls({ 
                         maxMaxBufferLength: 15, 
                         enableWorker: true,
@@ -460,7 +452,7 @@
                     hls.loadSource(streamUrl); 
                     hls.attachMedia(videoPlayer);
                     
-                    hls.on(Hls.Events.MANIFEST_PARSED, () => videoPlayer.play().catch(e=>console.log('Play bloqueado pelo navegador, aguardando clique.')));
+                    hls.on(Hls.Events.MANIFEST_PARSED, () => videoPlayer.play().catch(e=>console.log('Play bloqueado, aguardando clique.')));
                     
                     hls.on(Hls.Events.ERROR, (e, data) => { 
                         if(data.fatal) {
@@ -472,20 +464,20 @@
                                     hls.recoverMediaError();
                                     break;
                                 default:
-                                    playerErrorDiv.textContent = 'Erro de transmissão ou IP bloqueado pelo servidor IPTV.';
+                                    playerErrorDiv.textContent = 'Erro de transmissão (Canal offline ou bloqueado).';
                                     hls.destroy();
                                     break;
                             }
                         } 
                     });
                 } else if (videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
-                    // Suporte nativo do Safari (iOS/macOS)
+                    // Safari nativo
                     videoPlayer.src = streamUrl;
                     videoPlayer.play().catch(e=> console.log(e));
                 } else {
-                    // Reprodução direta de VODs (MP4, etc.)
+                    // Modo VOD
                     videoPlayer.src = streamUrl;
-                    videoPlayer.play().catch(e=> playerErrorDiv.textContent = 'Este formato pode não ser suportado nativamente pelo navegador. Clique manualmente no play.');
+                    videoPlayer.play().catch(e=> playerErrorDiv.textContent = 'Formato não suportado nativamente pelo navegador. Clique no play.');
                 }
             }
 
@@ -499,6 +491,7 @@
             }));
 
             let t; searchInput.addEventListener('input', e => { clearTimeout(t); t = setTimeout(()=>{ currentSearch = e.target.value.trim(); applyFilters(); renderPage(); }, 300); });
+            
             loadBtn.addEventListener('click', loadPlaylist);
             initTheme();
         })();
