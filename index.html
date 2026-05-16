@@ -1,123 +1,78 @@
 <!DOCTYPE html>
-<html lang="pt-BR" data-bs-theme="dark">
+<html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>IPTV Premium Player</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <title>IPTV Player</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     <style>
-        :root { --card-transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); }
-        body { padding-bottom: 100px; transition: background-color 0.3s ease; }
-        .item-card { cursor: pointer; transition: var(--card-transition); border: 1px solid rgba(0, 0, 0, 0.1); border-radius: 12px; overflow: hidden; background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(5px); }
-        [data-bs-theme="light"] .item-card { background: #ffffff; border: 1px solid rgba(0, 0, 0, 0.08); }
-        .item-card:hover { transform: translateY(-5px); box-shadow: 0 12px 20px rgba(0,0,0,0.3); border-color: var(--bs-danger); }
-        .img-container { position: relative; width: 100%; height: 130px; background: #0d0d0d; display: flex; align-items: center; justify-content: center; overflow: hidden; }
-        .item-card img { max-width: 100%; max-height: 100%; object-fit: contain; padding: 8px; transition: var(--card-transition); }
-        .item-card:hover img { transform: scale(1.05); }
-        .item-name { font-size: 0.85rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .player-container { position: fixed; bottom: 0; left: 0; right: 0; background: rgba(15, 15, 15, 0.95); backdrop-filter: blur(10px); z-index: 1050; padding: 15px; display: none; flex-direction: column; border-top: 2px solid var(--bs-danger); box-shadow: 0 -10px 30px rgba(0,0,0,0.5); }
+        body { padding-bottom: 80px; background: #f5f5f5; }
+        .item-card { cursor: pointer; transition: transform 0.2s; }
+        .item-card:hover { transform: scale(1.03); box-shadow: 0 6px 12px rgba(0,0,0,0.3); }
+        .item-card img { height: 120px; object-fit: contain; background: #000; }
+        .item-name { font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .player-container { position: fixed; bottom: 0; left: 0; right: 0; background: #000; z-index: 1000; padding: 10px; display: none; flex-direction: column; }
         .player-container.active { display: flex; }
-        .player-container video { width: 100%; max-height: 50vh; border-radius: 8px; background: #000; }
-        .page-jump { width: 80px; }
-        ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); }
-        ::-webkit-scrollbar-thumb { background: var(--bs-secondary); border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: var(--bs-danger); }
+        .player-container video { width: 100%; max-height: 60vh; }
+        .close-player { align-self: flex-end; margin-bottom: 5px; }
+        .back-btn { margin-bottom: 10px; }
     </style>
 </head>
 <body>
-
-    <nav class="navbar navbar-expand-lg border-bottom mb-4">
-        <div class="container">
-            <span class="navbar-brand fw-bold text-danger fs-3"><i class="bi bi-broadcast-pin me-2"></i>IPTV TAUÃ</span>
-            <button id="themeToggle" class="btn btn-outline-secondary rounded-circle" title="Alternar Tema"><i class="bi bi-moon-stars-fill" id="themeIcon"></i></button>
+    <div class="container mt-3">
+        <h1 class="mb-3 text-center">📡 IPTV Player</h1>
+        <div class="input-group mb-3">
+            <input type="text" id="urlInput" class="form-control" 
+                   value="http://pvsrvs.xyz:80/get.php?username=897549712031832&password=0520741888369&type=m3u_plus&output=ts"
+                   placeholder="Cole a URL da lista M3U aqui...">
+            <button id="loadBtn" class="btn btn-danger">Carregar Lista</button>
         </div>
-    </nav>
+        <div id="statusMessage" class="alert" role="alert" style="display:none;"></div>
 
-    <div class="container">
-        <div class="card p-4 shadow-sm mb-4">
-            <label for="urlInput" class="form-label fw-semibold">Link da sua Lista M3U</label>
-            <div class="input-group">
-                <span class="input-group-text"><i class="bi bi-link-45deg"></i></span>
-                <input type="text" id="urlInput" class="form-control" 
-                       value="http://pvsrvs.xyz:80/get.php?username=897549712031832&password=0520741888369&type=m3u_plus&output=m3u8"
-                       placeholder="Cole a URL m3u8 da sua lista aqui...">
-                <button id="loadBtn" class="btn btn-danger px-4 fw-bold">Carregar Lista</button>
+        <button id="backButton" class="btn btn-sm btn-outline-primary back-btn" style="display:none;">⬅ Voltar para a lista principal</button>
+
+        <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap">
+            <div class="btn-group mb-2" role="group" id="categoryFilters">
+                <button type="button" class="btn btn-outline-secondary active" data-category="all">Todos</button>
+                <button type="button" class="btn btn-outline-secondary" data-category="channel">📺 Canais</button>
+                <button type="button" class="btn btn-outline-secondary" data-category="movie">🎬 Filmes</button>
+                <button type="button" class="btn btn-outline-secondary" data-category="series">📺 Séries</button>
             </div>
-            <div id="statusMessage" class="alert mt-3" role="alert" style="display:none;"></div>
+            <input type="text" id="searchInput" class="form-control mb-2" placeholder="Buscar..." style="max-width:250px;">
         </div>
 
-        <div class="row g-3 justify-content-between align-items-center mb-4">
-            <div class="col-12 col-md-auto">
-                <div class="btn-group shadow-sm" role="group" id="categoryFilters">
-                    <button type="button" class="btn btn-outline-danger active" data-category="all">⚡ Todos</button>
-                    <button type="button" class="btn btn-outline-danger" data-category="channel"><i class="bi bi-tv me-1"></i> Canais</button>
-                    <button type="button" class="btn btn-outline-danger" data-category="movie"><i class="bi bi-film me-1"></i> Filmes</button>
-                    <button type="button" class="btn btn-outline-danger" data-category="series"><i class="bi bi-collection-play me-1"></i> Séries</button>
-                </div>
-            </div>
-            <div class="col-12 col-md-4">
-                <div class="input-group shadow-sm">
-                    <span class="input-group-text"><i class="bi bi-search"></i></span>
-                    <input type="text" id="searchInput" class="form-control" placeholder="Buscar canal, filme ou série...">
-                </div>
-            </div>
+        <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap">
+            <small id="itemCount" class="text-muted"></small>
+            <div id="paginationTop" class="d-flex align-items-center gap-2"></div>
         </div>
 
-        <div class="d-flex justify-content-between align-items-center mb-3 bg-body-tertiary p-2 rounded shadow-sm flex-wrap gap-2">
-            <span id="itemCount" class="badge bg-secondary p-2 fs-6">Aguardando lista...</span>
-            <div id="paginationTop"></div>
-        </div>
+        <div id="itemsGrid" class="row row-cols-2 row-cols-md-4 row-cols-lg-6 g-2"></div>
 
-        <div id="itemsGrid" class="row row-cols-2 row-cols-sm-3 row-cols-md-4 row-cols-lg-6 g-3">
-            <div class="col-12 w-100 text-center py-5 text-muted">
-                <i class="bi bi-cloud-download fs-1 d-block mb-2"></i> Insira o link acima e clique em "Carregar Lista".
-            </div>
-        </div>
-
-        <div id="paginationBottom" class="d-flex justify-content-center mt-4"></div>
-    </div>
-
-    <div class="modal fade" id="seriesModal" tabindex="-1" aria-hidden="true">
-      <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
-        <div class="modal-content">
-          <div class="modal-header border-bottom-0 pb-0">
-            <h5 class="modal-title fw-bold" id="seriesModalTitle">Nome da Série</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-          </div>
-          <div class="modal-body pt-2">
-            <ul class="nav nav-pills mb-3" id="seasonTabs" role="tablist"></ul>
-            <div class="tab-content" id="seasonContent"></div>
-          </div>
-        </div>
-      </div>
+        <div id="paginationBottom" class="d-flex justify-content-center mt-3"></div>
     </div>
 
     <div id="playerContainer" class="player-container">
-        <div class="d-flex justify-content-between align-items-center mb-2">
-            <h5 id="playerTitle" class="m-0 text-white text-truncate pe-3" style="max-width: 80%;">Reproduzindo...</h5>
-            <button id="closePlayer" class="btn btn-sm btn-danger rounded-pill px-3"><i class="bi bi-x-lg me-1"></i>Fechar</button>
-        </div>
+        <button id="closePlayer" class="btn btn-sm btn-light close-player">✖ Fechar</button>
         <video id="videoPlayer" controls playsinline></video>
-        <div id="playerError" class="text-danger mt-2 small text-center fw-bold"></div>
+        <div id="playerError" class="text-danger mt-1 small text-center"></div>
     </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
         (function() {
+            // ⚡️ SUBSTITUA PELA URL DO SEU WORKER
             const WORKER_URL = 'https://iptv-cors-proxy.exportauan659.workers.dev';
-            const ITEMS_PER_PAGE = 60;
 
-            let allItems = [];
+            const ITEMS_PER_PAGE = 50;
+
+            let mainAllItems = [];
+            let currentAllItems = [];
             let filteredItems = [];
             let currentCategory = 'all';
             let currentSearch = '';
             let currentPage = 1;
+            let isSubView = false;
             let hls = null;
-            let seriesModalInstance = null;
 
             const urlInput = document.getElementById('urlInput');
             const loadBtn = document.getElementById('loadBtn');
@@ -127,160 +82,63 @@
             const searchInput = document.getElementById('searchInput');
             const playerContainer = document.getElementById('playerContainer');
             const videoPlayer = document.getElementById('videoPlayer');
-            const playerTitle = document.getElementById('playerTitle');
             const closePlayerBtn = document.getElementById('closePlayer');
             const playerErrorDiv = document.getElementById('playerError');
             const paginationTop = document.getElementById('paginationTop');
             const paginationBottom = document.getElementById('paginationBottom');
             const itemCount = document.getElementById('itemCount');
-
-            // Gerenciador de Dark Mode
-            function initTheme() {
-                const savedTheme = localStorage.getItem('theme') || 'dark';
-                document.documentElement.setAttribute('data-bs-theme', savedTheme);
-                updateThemeIcon(savedTheme);
-            }
-            function updateThemeIcon(theme) {
-                document.getElementById('themeIcon').className = theme === 'dark' ? 'bi bi-sun-fill' : 'bi bi-moon-stars-fill';
-            }
-            document.getElementById('themeToggle').addEventListener('click', () => {
-                const newTheme = document.documentElement.getAttribute('data-bs-theme') === 'dark' ? 'light' : 'dark';
-                document.documentElement.setAttribute('data-bs-theme', newTheme);
-                localStorage.setItem('theme', newTheme);
-                updateThemeIcon(newTheme);
-            });
+            const backButton = document.getElementById('backButton');
 
             function showStatus(msg, type = 'info') {
                 statusDiv.textContent = msg;
                 statusDiv.className = `alert alert-${type}`;
                 statusDiv.style.display = 'block';
+                setTimeout(() => { statusDiv.style.display = 'none'; }, 6000);
             }
 
-            // Engine Inteligente de Categorias e "Cão de Guarda" Nível 1
-            function getCategory(url, group, name) {
-                url = (url || '').toLowerCase();
-                group = (group || '').toLowerCase();
-                name = (name || '').toLowerCase();
-
-                // 1. O CÃO DE GUARDA: PRIORIDADE MÁXIMA, preciso prestar atenção
-                // Se for um grupo de TV ao vivo ou canal 24h, joga pra aba 'Canais' e encerra!
-                const liveTvKeywords = [
-                    '24hrs', '24h', '24 horas', 'cine series', 'cine tv', 'filmes e series', 
-                    'telecine', 'hbo', 'sportv', 'premiere', 'espn', 'tnt', 'max', 'disney', 
-                    'canais 4k', 'esportes', 'documentários', 'noticias', 'notícia', 'abertos', 'ppv', 
-                    'globo', 'sbt', 'record', 'band'
-                ];
-                
-                if (liveTvKeywords.some(keyword => group.includes(keyword) || name.includes(keyword))) {
-                    return 'channel'; 
-                }
-
-                // 2. Verificação pela URL (Padrão Xtream Codes)
-                if (url.includes('/movie/')) return 'movie';
-                if (url.includes('/series/')) return 'series';
-                if (url.includes('/live/')) return 'channel';
-
-                // 3. Verificação por extensão de vídeo (VODs)
-                if (url.match(/\.(mp4|mkv|avi)$/i)) {
-                    if (group.includes('serie') || group.includes('série') || name.match(/[S|T]\d+[E|x]\d+/i)) return 'series';
-                    return 'movie';
-                }
-
-                // 4. Detecção semântica final
-                if (group.includes('vod') || group.includes('lançamento') || group.includes('cinema') || group.includes('filme')) return 'movie';
-                if (group.includes('série') || group.includes('serie') || group.includes('temporada')) return 'series';
-
-                // Se nada bater, por padrão é canal ao vivo
+            function getCategory(item) {
+                const g = (item.group || '').toLowerCase();
+                if (g.includes('filme') || g.includes('movie') || g.includes('película') || g.includes('cinema')) return 'movie';
+                if (g.includes('série') || g.includes('serie') || g.includes('episódio') || g.includes('episodio') || g.includes('temporada')) return 'series';
                 return 'channel';
             }
 
-            // O MÁGICO: Agrupador de Séries, preciso melhorar depois
-            function processAndGroupM3U(text) {
+            function parseM3U(text) {
                 const lines = text.split('\n');
-                const rawItems = [];
+                const items = [];
                 let currentItem = null;
-                
                 for (let i = 0; i < lines.length; i++) {
                     const line = lines[i].trim();
                     if (line.startsWith('#EXTINF:')) {
                         const attrs = {};
-                        let match;
                         const attrRegex = /([a-zA-Z-]+)="([^"]*)"/g;
-                        while ((match = attrRegex.exec(line)) !== null) attrs[match[1]] = match[2];
-                        
-                        const title = line.substring(line.indexOf(',') + 1).trim();
-                        // Conserta Mixed Content forçando HTTPS na Logo
-                        let safeLogo = (attrs['tvg-logo'] || '').replace(/^http:\/\//i, 'https://');
-                        
+                        let match;
+                        while ((match = attrRegex.exec(line)) !== null) {
+                            attrs[match[1]] = match[2];
+                        }
+                        const commaIndex = line.indexOf(',');
+                        const title = commaIndex !== -1 ? line.substring(commaIndex + 1).trim() : '';
                         currentItem = {
-                            name: attrs['tvg-name'] || title || 'Sem Nome',
-                            logo: safeLogo,
-                            group: attrs['group-title'] || 'Geral',
+                            name: attrs['tvg-name'] || title || 'Sem nome',
+                            logo: attrs['tvg-logo'] || '',
+                            group: attrs['group-title'] || 'Sem grupo',
                             url: null
                         };
                     } else if (line && !line.startsWith('#') && currentItem) {
                         currentItem.url = line;
-                        rawItems.push(currentItem);
+                        items.push(currentItem);
                         currentItem = null;
                     }
                 }
-
-                // Fase 2: Agrupar Séries
-                const processed = [];
-                const seriesMap = {};
-
-                rawItems.forEach(item => {
-                    const cat = getCategory(item.url, item.group, item.name);
-                    item.category = cat;
-
-                    if (cat === 'series') {
-                        // Tenta achar padrões como: Chaves S01E05, T01 EP 05, S1 E5
-                        const regexS0E0 = /(.*?)\s*[-_:]?\s*[S|T]0*(\d+)\s*[-_]?\s*[E|EP|x]\s*0*(\d+)(.*)/i;
-                        const match = item.name.match(regexS0E0);
-
-                        if (match) {
-                            const seriesName = match[1].trim() || item.group; // Usa o nome ou o grupo
-                            const seasonNum = parseInt(match[2], 10);
-                            const episodeNum = parseInt(match[3], 10);
-
-                            if (!seriesMap[seriesName]) {
-                                seriesMap[seriesName] = {
-                                    isSeriesFolder: true,
-                                    name: seriesName,
-                                    logo: item.logo,
-                                    group: item.group,
-                                    category: 'series',
-                                    seasons: {}
-                                };
-                                processed.push(seriesMap[seriesName]);
-                            }
-
-                            if (!seriesMap[seriesName].seasons[seasonNum]) {
-                                seriesMap[seriesName].seasons[seasonNum] = [];
-                            }
-
-                            seriesMap[seriesName].seasons[seasonNum].push({
-                                ...item,
-                                epNumber: episodeNum,
-                                cleanName: `Episódio ${episodeNum} ${match[4] ? '- ' + match[4].trim() : ''}`
-                            });
-                        } else {
-                            processed.push(item); // Se não bater o regex, envia solto
-                        }
-                    } else {
-                        processed.push(item); // Canais e filmes
-                    }
-                });
-
-                return processed;
+                return items;
             }
 
             function applyFilters() {
-                filteredItems = allItems.filter(item => {
-                    if (currentCategory !== 'all' && item.category !== currentCategory) return false;
+                filteredItems = currentAllItems.filter(item => {
+                    if (currentCategory !== 'all' && getCategory(item) !== currentCategory) return false;
                     if (currentSearch) {
                         const s = currentSearch.toLowerCase();
-                        return item.name.toLowerCase().includes(s) || item.group.toLowerCase().includes(s);
+                        if (!item.name.toLowerCase().includes(s) && !item.group.toLowerCase().includes(s)) return false;
                     }
                     return true;
                 });
@@ -291,165 +149,245 @@
                 const totalItems = filteredItems.length;
                 const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE) || 1;
                 if (currentPage > totalPages) currentPage = totalPages;
-                const pageItems = filteredItems.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+                const startIdx = (currentPage - 1) * ITEMS_PER_PAGE;
+                const endIdx = Math.min(startIdx + ITEMS_PER_PAGE, totalItems);
+                const pageItems = filteredItems.slice(startIdx, endIdx);
 
                 itemsGrid.innerHTML = '';
-                if (pageItems.length === 0) return itemsGrid.innerHTML = `<div class="col-12 text-center text-muted py-5">Nenhum resultado.</div>`;
-
-                pageItems.forEach(item => {
-                    const col = document.createElement('div');
-                    col.className = 'col';
-                    const placeholder = 'https://via.placeholder.com/300x200?text=IPTV';
-                    
-                    // Se for pasta de série, mostra ícone especial
-                    const folderBadge = item.isSeriesFolder ? `<span class="badge bg-danger position-absolute top-0 end-0 m-2"><i class="bi bi-folder2-open"></i> Série</span>` : '';
-
-                    col.innerHTML = `
-                        <div class="card item-card h-100 shadow-sm position-relative">
-                            ${folderBadge}
-                            <div class="img-container">
-                                <img src="${item.logo || placeholder}" loading="lazy" onerror="this.src='${placeholder}';">
+                if (pageItems.length === 0) {
+                    itemsGrid.innerHTML = '<div class="col-12 text-center text-muted">Nenhum item encontrado.</div>';
+                } else {
+                    pageItems.forEach(item => {
+                        const col = document.createElement('div');
+                        col.className = 'col';
+                        col.innerHTML = `
+                            <div class="card item-card h-100">
+                                <img src="${item.logo || 'https://via.placeholder.com/300x200?text=Sem+Logo'}" 
+                                     class="card-img-top" alt="${item.name}" 
+                                     onerror="this.src='https://via.placeholder.com/300x200?text=Sem+Logo'">
+                                <div class="card-body p-1">
+                                    <p class="item-name mb-0" title="${item.name}">${item.name}</p>
+                                    <small class="text-muted">${item.group}</small>
+                                </div>
                             </div>
-                            <div class="card-body p-2 d-flex flex-column justify-content-between">
-                                <p class="item-name mb-1" title="${item.name}">${item.name}</p>
-                                <span class="badge bg-secondary-subtle text-secondary-emphasis text-truncate" style="font-size:0.7rem;">${item.group}</span>
-                            </div>
-                        </div>
-                    `;
-
-                    col.querySelector('.item-card').addEventListener('click', () => {
-                        if (item.isSeriesFolder) {
-                            openSeriesModal(item);
-                        } else {
-                            playStream(item.url, item.name);
-                        }
+                        `;
+                        col.querySelector('.item-card').addEventListener('click', () => handleItemClick(item));
+                        itemsGrid.appendChild(col);
                     });
-                    itemsGrid.appendChild(col);
-                });
+                }
 
-                itemCount.textContent = `${totalItems} resultados`;
+                itemCount.textContent = `Exibindo ${startIdx+1}–${endIdx} de ${totalItems} itens`;
                 updatePagination(totalPages);
-            }
-
-            // Interface do Modal de Temporadas
-            function openSeriesModal(series) {
-                seriesModalInstance = new bootstrap.Modal(document.getElementById('seriesModal'));
-                document.getElementById('seriesModalTitle').textContent = series.name;
-                
-                const tabsContainer = document.getElementById('seasonTabs');
-                const contentContainer = document.getElementById('seasonContent');
-                tabsContainer.innerHTML = ''; contentContainer.innerHTML = '';
-
-                // Ordena temporadas
-                const seasons = Object.keys(series.seasons).map(Number).sort((a,b)=>a-b);
-                
-                seasons.forEach((seasonNum, index) => {
-                    const isActive = index === 0 ? 'active' : '';
-                    
-                    // Tab Btn
-                    tabsContainer.innerHTML += `
-                        <li class="nav-item" role="presentation">
-                            <button class="nav-link ${isActive} rounded-pill border mx-1" id="tab-s${seasonNum}" data-bs-toggle="pill" data-bs-target="#s${seasonNum}" type="button">
-                                Temporada ${seasonNum}
-                            </button>
-                        </li>`;
-                    
-                    // Episodios
-                    const episodesList = series.seasons[seasonNum].sort((a,b) => a.epNumber - b.epNumber);
-                    let epHtml = `<div class="list-group list-group-flush">`;
-                    episodesList.forEach(ep => {
-                        epHtml += `
-                            <button class="list-group-item list-group-item-action d-flex justify-content-between align-items-center bg-transparent border-bottom" onclick="window.startEpisode('${ep.url}', '${series.name} - ${ep.cleanName}')">
-                                <span><i class="bi bi-play-circle-fill text-danger me-2"></i> ${ep.cleanName}</span>
-                            </button>`;
-                    });
-                    epHtml += `</div>`;
-
-                    contentContainer.innerHTML += `
-                        <div class="tab-pane fade ${index === 0 ? 'show active' : ''}" id="s${seasonNum}" role="tabpanel">
-                            ${epHtml}
-                        </div>`;
-                });
-
-                seriesModalInstance.show();
-            }
-
-            // Handler global pro HTML chamar do Modal
-            window.startEpisode = function(url, title) {
-                if(seriesModalInstance) seriesModalInstance.hide();
-                playStream(url, title);
+                backButton.style.display = isSubView ? 'inline-block' : 'none';
             }
 
             function updatePagination(totalPages) {
-                const render = (p) => `
-                    <div class="d-flex align-items-center gap-1 justify-content-center">
-                        <button class="btn btn-sm btn-outline-secondary" id="${p}Prev" ${currentPage === 1 ? 'disabled' : ''}><i class="bi bi-chevron-left"></i></button>
-                        <input type="number" class="form-control form-control-sm text-center" style="width:60px" id="${p}Jump" value="${currentPage}">
-                        <button class="btn btn-sm btn-outline-secondary" id="${p}Next" ${currentPage === totalPages ? 'disabled' : ''}><i class="bi bi-chevron-right"></i></button>
-                    </div>`;
-                paginationTop.innerHTML = render('top');
-                paginationBottom.innerHTML = render('bottom');
+                const createControls = (prefix) => `
+                    <div class="d-flex align-items-center gap-1">
+                        <button class="btn btn-sm btn-outline-secondary" id="${prefix}First" ${currentPage === 1 ? 'disabled' : ''}>«</button>
+                        <button class="btn btn-sm btn-outline-secondary" id="${prefix}Prev" ${currentPage === 1 ? 'disabled' : ''}>‹</button>
+                        <span class="mx-1">Página</span>
+                        <input type="number" class="form-control form-control-sm page-jump" id="${prefix}Jump" value="${currentPage}" min="1" max="${totalPages}" style="width:70px;">
+                        <span class="mx-1">de ${totalPages}</span>
+                        <button class="btn btn-sm btn-outline-secondary" id="${prefix}Next" ${currentPage === totalPages ? 'disabled' : ''}>›</button>
+                        <button class="btn btn-sm btn-outline-secondary" id="${prefix}Last" ${currentPage === totalPages ? 'disabled' : ''}>»</button>
+                    </div>
+                `;
 
-                ['top', 'bottom'].forEach(p => {
-                    document.getElementById(`${p}Prev`)?.addEventListener('click', () => { currentPage--; renderPage(); window.scrollTo(0,0); });
-                    document.getElementById(`${p}Next`)?.addEventListener('click', () => { currentPage++; renderPage(); window.scrollTo(0,0); });
-                    document.getElementById(`${p}Jump`)?.addEventListener('change', (e) => { currentPage = parseInt(e.target.value)||1; renderPage(); });
-                });
+                paginationTop.innerHTML = createControls('top');
+                paginationBottom.innerHTML = createControls('bottom');
+
+                const bindEvents = (prefix) => {
+                    document.getElementById(`${prefix}First`)?.addEventListener('click', () => { currentPage = 1; renderPage(); });
+                    document.getElementById(`${prefix}Prev`)?.addEventListener('click', () => { if (currentPage > 1) { currentPage--; renderPage(); } });
+                    document.getElementById(`${prefix}Next`)?.addEventListener('click', () => { if (currentPage < totalPages) { currentPage++; renderPage(); } });
+                    document.getElementById(`${prefix}Last`)?.addEventListener('click', () => { currentPage = totalPages; renderPage(); });
+                    document.getElementById(`${prefix}Jump`)?.addEventListener('change', function() {
+                        let p = parseInt(this.value, 10);
+                        if (isNaN(p) || p < 1) p = 1;
+                        if (p > totalPages) p = totalPages;
+                        currentPage = p;
+                        renderPage();
+                    });
+                };
+                bindEvents('top');
+                bindEvents('bottom');
             }
 
-            async function loadPlaylist() {
-                let url = urlInput.value.trim();
-                if (!url) return;
-                if(url.includes('output=ts')) url = url.replace('output=ts', 'output=m3u8');
-                
-                loadBtn.disabled = true; loadBtn.innerHTML = 'Processando...';
-                try {
-                    const response = await fetch(`${WORKER_URL}?url=${encodeURIComponent(url)}`);
-                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                    const data = await response.text();
-                    
-                    allItems = processAndGroupM3U(data);
-                    showStatus(`${allItems.length} itens (Canais/Filmes/Séries) sincronizados!`, 'success');
-                    
-                    applyFilters(); renderPage();
-                } catch (error) {
-                    showStatus(`Falha de Conexão: ${error.message}`, 'danger');
-                } finally {
-                    loadBtn.disabled = false; loadBtn.innerHTML = 'Carregar Lista';
+            async function handleItemClick(item) {
+                const url = item.url;
+                if (!url) {
+                    playStream(url, item.name);
+                    return;
                 }
+
+                if (url.match(/\.m3u8?(\?.*)?$/i)) {
+                    showStatus('Abrindo lista de episódios...', 'info');
+                    try {
+                        const proxyUrl = `${WORKER_URL}/?url=${encodeURIComponent(url)}`;
+                        const resp = await fetch(proxyUrl);
+                        if (!resp.ok) throw new Error(`Erro ${resp.status}`);
+                        const text = await resp.text();
+                        if (text.trim().startsWith('#EXTM3U')) {
+                            const subItems = parseM3U(text);
+                            if (subItems.length === 0) {
+                                showStatus('Nenhum episódio encontrado nessa lista.', 'warning');
+                            } else {
+                                mainAllItems = currentAllItems;
+                                currentAllItems = subItems;
+                                isSubView = true;
+                                applyFilters();
+                                renderPage();
+                                showStatus(`${subItems.length} episódios carregados.`, 'success');
+                                return;
+                            }
+                        } else {
+                            playStream(url, item.name);
+                            return;
+                        }
+                    } catch (err) {
+                        showStatus('Falha ao carregar sub-lista: ' + err.message, 'danger');
+                        playStream(url, item.name);
+                        return;
+                    }
+                }
+
+                playStream(url, item.name);
             }
 
             function playStream(url, title) {
-                playerContainer.classList.add('active'); playerTitle.textContent = title; playerErrorDiv.textContent = '';
+                playerContainer.classList.add('active');
+                playerErrorDiv.textContent = '';
                 if (hls) { hls.destroy(); hls = null; }
-                videoPlayer.removeAttribute('src'); videoPlayer.load();
+                videoPlayer.src = '';
 
-                const streamUrl = `${WORKER_URL}/video?url=${encodeURIComponent(url)}`;
-                const isHls = url.toLowerCase().includes('.m3u8') || !url.match(/\.(mp4|mkv|avi|ts)$/i);
+                if (!url) {
+                    playerErrorDiv.textContent = 'URL inválida.';
+                    return;
+                }
 
-                if (isHls && Hls.isSupported()) {
-                    hls = new Hls({ maxMaxBufferLength: 15, enableWorker: true });
-                    hls.loadSource(streamUrl); hls.attachMedia(videoPlayer);
-                    hls.on(Hls.Events.MANIFEST_PARSED, () => videoPlayer.play().catch(e=>console.log('Play bloqueado pelo navegador, aguardando clique.')));
-                    hls.on(Hls.Events.ERROR, (e, data) => { if(data.fatal) playerErrorDiv.textContent = 'Erro de transmissão ou IP bloqueado pelo servidor IPTV.'; });
+                const streamUrl = `${WORKER_URL}/?url=${encodeURIComponent(url)}`;
+
+                const onError = (msg) => {
+                    playerErrorDiv.textContent = msg;
+                    console.error('Erro de reprodução:', msg);
+                };
+
+                if (url.toLowerCase().includes('.m3u8') || url.toLowerCase().includes('.m3u')) {
+                    if (Hls.isSupported()) {
+                        hls = new Hls();
+                        hls.loadSource(streamUrl);
+                        hls.attachMedia(videoPlayer);
+                        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                            videoPlayer.play().catch(e => onError('Erro ao iniciar: ' + e.message));
+                        });
+                        hls.on(Hls.Events.ERROR, (event, data) => {
+                            if (data.fatal) {
+                                switch (data.type) {
+                                    case Hls.ErrorTypes.NETWORK_ERROR:
+                                        onError('Erro de rede. Tentando reconectar...');
+                                        hls.startLoad();
+                                        break;
+                                    case Hls.ErrorTypes.MEDIA_ERROR:
+                                        onError('Erro de mídia. Tentando recuperar...');
+                                        hls.recoverMediaError();
+                                        break;
+                                    default:
+                                        onError('Erro fatal na reprodução.');
+                                        hls.destroy();
+                                        break;
+                                }
+                            }
+                        });
+                    } else if (videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
+                        videoPlayer.src = streamUrl;
+                        videoPlayer.play().catch(e => onError('Erro ao iniciar: ' + e.message));
+                    } else {
+                        onError('Navegador não suporta HLS.');
+                    }
                 } else {
                     videoPlayer.src = streamUrl;
-                    videoPlayer.play().catch(e=> playerErrorDiv.textContent = 'Erro: Clique play no player manualmente.');
+                    videoPlayer.play().catch(e => onError('Erro ao iniciar: ' + e.message));
+                }
+
+                videoPlayer.onerror = () => {
+                    const err = videoPlayer.error;
+                    if (err) {
+                        onError(`Erro ${err.code}: ${err.message || 'desconhecido'}`);
+                    } else {
+                        onError('Erro de reprodução desconhecido.');
+                    }
+                };
+            }
+
+            async function fetchPlaylist(originalUrl) {
+                const proxyUrl = `${WORKER_URL}/?url=${encodeURIComponent(originalUrl)}`;
+                const response = await fetch(proxyUrl);
+                if (!response.ok) throw new Error(`Erro ${response.status}`);
+                return await response.text();
+            }
+
+            async function loadPlaylist() {
+                const url = urlInput.value.trim();
+                if (!url) return showStatus('Insira uma URL.', 'warning');
+                loadBtn.disabled = true;
+                loadBtn.innerHTML = '⏳ Baixando lista...';
+                showStatus('Baixando lista...', 'info');
+                try {
+                    const data = await fetchPlaylist(url);
+                    mainAllItems = parseM3U(data);
+                    currentAllItems = mainAllItems;
+                    isSubView = false;
+                    if (mainAllItems.length === 0) {
+                        showStatus('Nenhum item encontrado.', 'warning');
+                    } else {
+                        showStatus(`${mainAllItems.length} itens carregados!`, 'success');
+                    }
+                    applyFilters();
+                    renderPage();
+                } catch (error) {
+                    showStatus(`Erro: ${error.message}`, 'danger');
+                    console.error(error);
+                } finally {
+                    loadBtn.disabled = false;
+                    loadBtn.innerHTML = 'Carregar Lista';
                 }
             }
 
-            closePlayerBtn.addEventListener('click', () => {
-                videoPlayer.pause(); if (hls) hls.destroy(); playerContainer.classList.remove('active');
-            });
+            function backToMain() {
+                if (!isSubView) return;
+                currentAllItems = mainAllItems;
+                isSubView = false;
+                applyFilters();
+                renderPage();
+                showStatus('Voltando à lista principal', 'info');
+            }
+
+            loadBtn.addEventListener('click', loadPlaylist);
+            backButton.addEventListener('click', backToMain);
 
             categoryBtns.forEach(btn => btn.addEventListener('click', () => {
-                categoryBtns.forEach(b => b.classList.remove('active')); btn.classList.add('active');
-                currentCategory = btn.dataset.category; applyFilters(); renderPage();
+                categoryBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentCategory = btn.dataset.category;
+                applyFilters();
+                renderPage();
             }));
 
-            let t; searchInput.addEventListener('input', e => { clearTimeout(t); t = setTimeout(()=>{ currentSearch = e.target.value.trim(); applyFilters(); renderPage(); }, 300); });
-            loadBtn.addEventListener('click', loadPlaylist);
-            initTheme();
+            searchInput.addEventListener('input', e => {
+                currentSearch = e.target.value.trim();
+                applyFilters();
+                renderPage();
+            });
+
+            closePlayerBtn.addEventListener('click', () => {
+                videoPlayer.pause();
+                if (hls) { hls.destroy(); hls = null; }
+                videoPlayer.removeAttribute('src');
+                videoPlayer.load();
+                playerContainer.classList.remove('active');
+                playerErrorDiv.textContent = '';
+            });
         })();
     </script>
 </body>
