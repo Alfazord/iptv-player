@@ -4,107 +4,322 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>IPTV Premium Player</title>
+    <!-- Bootstrap 5.3 Premium Dark Support -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Google Fonts & Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <!-- HLS.js Core -->
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    
     <style>
-        :root { --card-transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1); }
-        body { padding-bottom: 100px; transition: background-color 0.3s ease; }
-        .item-card { cursor: pointer; transition: var(--card-transition); border: 1px solid rgba(0, 0, 0, 0.1); border-radius: 12px; overflow: hidden; background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(5px); }
-        [data-bs-theme="light"] .item-card { background: #ffffff; border: 1px solid rgba(0, 0, 0, 0.08); }
-        .item-card:hover { transform: translateY(-5px); box-shadow: 0 12px 20px rgba(0,0,0,0.3); border-color: var(--bs-danger); }
-        .img-container { position: relative; width: 100%; height: 130px; background: #0d0d0d; display: flex; align-items: center; justify-content: center; overflow: hidden; }
-        .item-card img { max-width: 100%; max-height: 100%; object-fit: contain; padding: 8px; transition: var(--card-transition); }
-        .item-card:hover img { transform: scale(1.05); }
-        .item-name { font-size: 0.85rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .player-container { position: fixed; bottom: 0; left: 0; right: 0; background: rgba(15, 15, 15, 0.95); backdrop-filter: blur(10px); z-index: 1050; padding: 15px; display: none; flex-direction: column; border-top: 2px solid var(--bs-danger); box-shadow: 0 -10px 30px rgba(0,0,0,0.5); }
+        :root {
+            --bg-dark-pure: #090a0f;
+            --bg-card-dark: #131520;
+            --accent-color: #e50914; /* Red Streaming Accent */
+            --accent-hover: #b80710;
+            --text-muted-custom: #8a8e99;
+            --card-transition: all 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        body { 
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-dark-pure);
+            color: #f1f3f5;
+            padding-bottom: 120px; 
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        [data-bs-theme="light"] {
+            --bg-dark-pure: #f4f6f9;
+            --bg-card-dark: #ffffff;
+            --text-muted-custom: #6c757d;
+        }
+
+        /* Navbar Styling */
+        .navbar-premium {
+            background: rgba(var(--bg-dark-pure), 0.75);
+            backdrop-filter: blur(15px);
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+        }
+        [data-bs-theme="light"] .navbar-premium {
+            border-bottom: 1px solid rgba(0,0,0,0.06);
+        }
+
+        /* Input Card Design */
+        .premium-card {
+            background: var(--bg-card-dark);
+            border: 1px solid rgba(255,255,255,0.05);
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        [data-bs-theme="light"] .premium-card {
+            border: 1px solid rgba(0,0,0,0.05);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.04);
+        }
+
+        .form-control-premium {
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255,255,255,0.1);
+            color: #fff;
+            border-radius: 10px;
+            padding: 12px 16px;
+            transition: var(--card-transition);
+        }
+        [data-bs-theme="light"] .form-control-premium {
+            background: #fff;
+            border: 1px solid rgba(0,0,0,0.15);
+            color: #000;
+        }
+        .form-control-premium:focus {
+            background: rgba(0, 0, 0, 0.3);
+            border-color: var(--accent-color);
+            box-shadow: 0 0 0 3px rgba(229, 9, 20, 0.25);
+            color: #fff;
+        }
+        [data-bs-theme="light"] .form-control-premium:focus {
+            background: #fff;
+            color: #000;
+        }
+
+        /* Filter Button Design */
+        .btn-filter {
+            border-radius: 10px;
+            padding: 10px 20px;
+            font-weight: 500;
+            border: 1px solid rgba(255,255,255,0.08);
+            background: rgba(255,255,255,0.03);
+            color: #fff;
+            transition: var(--card-transition);
+        }
+        [data-bs-theme="light"] .btn-filter {
+            background: #fff;
+            color: #495057;
+            border: 1px solid rgba(0,0,0,0.1);
+        }
+        .btn-filter.active, .btn-filter:hover {
+            background: var(--accent-color) !important;
+            border-color: var(--accent-color) !important;
+            color: white !important;
+            box-shadow: 0 4px 15px rgba(229, 9, 20, 0.35);
+        }
+
+        /* Item Grid & Card Design */
+        .item-card { 
+            cursor: pointer; 
+            transition: var(--card-transition); 
+            border: 1px solid rgba(255,255,255,0.04); 
+            border-radius: 14px; 
+            overflow: hidden; 
+            background: var(--bg-card-dark);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        .item-card:hover { 
+            transform: translateY(-6px) scale(1.02); 
+            box-shadow: 0 15px 30px rgba(0,0,0,0.4); 
+            border-color: rgba(229, 9, 20, 0.5); 
+        }
+        [data-bs-theme="light"] .item-card {
+            border: 1px solid rgba(0,0,0,0.06);
+        }
+        [data-bs-theme="light"] .item-card:hover {
+            box-shadow: 0 15px 30px rgba(0,0,0,0.1);
+        }
+
+        .img-container { 
+            position: relative; 
+            width: 100%; 
+            height: 140px; 
+            background: #07080c; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            overflow: hidden; 
+        }
+        .item-card img { 
+            max-width: 100%; 
+            max-height: 100%; 
+            object-fit: contain; 
+            padding: 10px; 
+            transition: var(--card-transition); 
+        }
+        .item-card:hover img { 
+            transform: scale(1.06); 
+        }
+
+        .item-title { 
+            font-size: 0.85rem; 
+            font-weight: 600; 
+            white-space: nowrap; 
+            overflow: hidden; 
+            text-overflow: ellipsis;
+            margin-bottom: 2px;
+        }
+        .item-meta {
+            font-size: 0.72rem;
+            color: var(--text-muted-custom);
+        }
+
+        /* Badges Overlay */
+        .badge-stream {
+            font-size: 0.68rem;
+            padding: 5px 9px;
+            border-radius: 6px;
+            font-weight: 600;
+            letter-spacing: 0.3px;
+        }
+
+        /* Cinematic Player Container */
+        .player-container { 
+            position: fixed; 
+            bottom: 0; 
+            left: 0; 
+            right: 0; 
+            background: rgba(10, 11, 16, 0.96); 
+            backdrop-filter: blur(20px); 
+            z-index: 1060; 
+            padding: 20px; 
+            display: none; 
+            flex-direction: column; 
+            border-top: 3px solid var(--accent-color); 
+            box-shadow: 0 -15px 40px rgba(0,0,0,0.6); 
+        }
         .player-container.active { display: flex; }
-        .player-container video { width: 100%; max-height: 50vh; border-radius: 8px; background: #000; }
-        .page-jump { width: 80px; }
-        ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); }
-        ::-webkit-scrollbar-thumb { background: var(--bs-secondary); border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: var(--bs-danger); }
+        .player-container video { width: 100%; max-height: 48vh; border-radius: 12px; background: #000; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+
+        /* Custom Scrollbar Elements */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: var(--bg-dark-pure); }
+        ::-webkit-scrollbar-thumb { background: #2c2f3b; border-radius: 20px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--accent-color); }
+
+        /* Modal Customizations */
+        .modal-content {
+            background-color: var(--bg-card-dark);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 18px;
+        }
+        .nav-pills .nav-link {
+            color: #f1f3f5;
+            border: 1px solid rgba(255,255,255,0.08);
+            background: rgba(255,255,255,0.02);
+            transition: var(--card-transition);
+        }
+        [data-bs-theme="light"] .nav-pills .nav-link {
+            color: #333;
+            border: 1px solid rgba(0,0,0,0.1);
+            background: #fff;
+        }
+        .nav-pills .nav-link.active {
+            background-color: var(--accent-color) !important;
+            box-shadow: 0 4px 12px rgba(229, 9, 20, 0.3);
+        }
+        .list-group-item-action {
+            color: inherit;
+            transition: var(--card-transition);
+        }
+        .list-group-item-action:hover {
+            background-color: rgba(229, 9, 20, 0.08);
+            color: var(--accent-color);
+            padding-left: 20px;
+        }
     </style>
 </head>
 <body>
 
-    <nav class="navbar navbar-expand-lg border-bottom mb-4">
+    <!-- Premium Navbar Header -->
+    <nav class="navbar navbar-expand-lg navbar-premium sticky-top mb-4">
         <div class="container">
-            <span class="navbar-brand fw-bold text-danger fs-3"><i class="bi bi-broadcast-pin me-2"></i>IPTV Premium</span>
-            <button id="themeToggle" class="btn btn-outline-secondary rounded-circle" title="Alternar Tema"><i class="bi bi-moon-stars-fill" id="themeIcon"></i></button>
+            <span class="navbar-brand fw-bold text-danger fs-3 d-flex align-items-center">
+                <i class="bi bi-broadcast-pin me-2 text-danger"></i>
+                <span class="text-white">IPTV</span><span class="text-danger ms-1">PREMIUM</span>
+            </span>
+            <button id="themeToggle" class="btn btn-outline-secondary rounded-circle shadow-sm" title="Alternar Tema">
+                <i class="bi bi-moon-stars-fill" id="themeIcon"></i>
+            </button>
         </div>
     </nav>
 
     <div class="container">
-        <div class="card p-4 shadow-sm mb-4">
-            <label for="urlInput" class="form-label fw-semibold">Link da sua Lista M3U</label>
-            <div class="input-group">
-                <span class="input-group-text"><i class="bi bi-link-45deg"></i></span>
-                <input type="text" id="urlInput" class="form-control" 
+        <!-- Control Card for Stream URL Sinking -->
+        <div class="card premium-card p-4 mb-4">
+            <label for="urlInput" class="form-label fw-semibold mb-2 text-secondary-emphasis">Link de Conexão da M3U</label>
+            <div class="input-group shadow-sm">
+                <span class="input-group-text border-0 bg-opacity-10 bg-secondary"><i class="bi bi-link-45deg fs-5"></i></span>
+                <input type="text" id="urlInput" class="form-control form-control-premium border-0" 
                        value="http://pvsrvs.xyz:80/get.php?username=897549712031832&password=0520741888369&type=m3u_plus&output=m3u8"
-                       placeholder="Cole a URL m3u8 da sua lista aqui...">
-                <button id="loadBtn" class="btn btn-danger px-4 fw-bold">Carregar Lista</button>
+                       placeholder="Cole a URL m3u8 ou ts do seu provedor...">
+                <button id="loadBtn" class="btn btn-danger px-4 fw-bold shadow-sm" style="background-color: var(--accent-color); border-color: var(--accent-color);">Carregar Conteúdo</button>
             </div>
-            <div id="statusMessage" class="alert mt-3" role="alert" style="display:none;"></div>
+            <div id="statusMessage" class="alert mt-3 border-0 rounded-3 small fw-medium shadow-sm" role="alert" style="display:none; backdrop-filter: blur(5px);"></div>
         </div>
 
+        <!-- Filter Control Engine Layout -->
         <div class="row g-3 justify-content-between align-items-center mb-4">
             <div class="col-12 col-md-auto">
-                <div class="btn-group shadow-sm" role="group" id="categoryFilters">
-                    <button type="button" class="btn btn-outline-danger active" data-category="all">⚡ Todos</button>
-                    <button type="button" class="btn btn-outline-danger" data-category="channel"><i class="bi bi-tv me-1"></i> Canais</button>
-                    <button type="button" class="btn btn-outline-danger" data-category="movie"><i class="bi bi-film me-1"></i> Filmes</button>
-                    <button type="button" class="btn btn-outline-danger" data-category="series"><i class="bi bi-collection-play me-1"></i> Séries</button>
+                <div class="d-flex gap-2 flex-wrap" id="categoryFilters">
+                    <button type="button" class="btn btn-filter active" data-category="all">⚡ Todos</button>
+                    <button type="button" class="btn btn-filter" data-category="channel"><i class="bi bi-tv me-2"></i>Canais Ao Vivo</button>
+                    <button type="button" class="btn btn-filter" data-category="movie"><i class="bi bi-film me-2"></i>Filmes (VOD)</button>
+                    <button type="button" class="btn btn-filter" data-category="series"><i class="bi bi-collection-play me-2"></i>Séries</button>
                 </div>
             </div>
             <div class="col-12 col-md-4">
                 <div class="input-group shadow-sm">
-                    <span class="input-group-text"><i class="bi bi-search"></i></span>
-                    <input type="text" id="searchInput" class="form-control" placeholder="Buscar canal, filme ou série...">
+                    <span class="input-group-text bg-transparent border-secondary border-opacity-25"><i class="bi bi-search text-muted"></i></span>
+                    <input type="text" id="searchInput" class="form-control form-control-premium border-secondary border-opacity-25 ps-2" placeholder="Buscar por título ou gênero...">
                 </div>
             </div>
         </div>
 
-        <div class="d-flex justify-content-between align-items-center mb-3 bg-body-tertiary p-2 rounded shadow-sm flex-wrap gap-2">
-            <span id="itemCount" class="badge bg-secondary p-2 fs-6">Aguardando lista...</span>
+        <!-- Top Pagination Info Dashboard -->
+        <div class="d-flex justify-content-between align-items-center mb-4 bg-secondary bg-opacity-10 p-3 rounded-4 shadow-sm flex-wrap gap-3 border border-secondary border-opacity-10">
+            <span id="itemCount" class="badge bg-dark text-white p-2.5 rounded-3 fs-6 border border-secondary border-opacity-25 shadow-sm">Aguardando sincronização da grade...</span>
             <div id="paginationTop"></div>
         </div>
 
+        <!-- Core Rendering Content Grid -->
         <div id="itemsGrid" class="row row-cols-2 row-cols-sm-3 row-cols-md-4 row-cols-lg-6 g-3">
             <div class="col-12 w-100 text-center py-5 text-muted">
-                <i class="bi bi-cloud-download fs-1 d-block mb-2"></i> Insira o link acima e clique em "Carregar Lista".
+                <i class="bi bi-cloud-arrow-down fs-1 d-block mb-3 text-secondary"></i>
+                <p class="mb-0 fw-medium">Insira o link M3U no campo acima e clique em "Carregar Conteúdo" para mapear os canais.</p>
             </div>
         </div>
 
-        <div id="paginationBottom" class="d-flex justify-content-center mt-4"></div>
+        <!-- Bottom Page Control -->
+        <div id="paginationBottom" class="d-flex justify-content-center mt-5"></div>
     </div>
 
+    <!-- Series Dynamic Modal (Nested Structure System) -->
     <div class="modal fade" id="seriesModal" tabindex="-1" aria-hidden="true">
       <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
-        <div class="modal-content">
-          <div class="modal-header border-bottom-0 pb-0">
-            <h5 class="modal-title fw-bold" id="seriesModalTitle">Nome da Série</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        <div class="modal-content shadow-lg">
+          <div class="modal-header border-bottom-0 pb-0 pt-4 px-4 d-flex justify-content-between align-items-start">
+            <div>
+                <span class="badge bg-danger-subtle text-danger mb-2 badge-stream"><i class="bi bi-folder2-open me-1"></i>SÉRIE COMPLETA</span>
+                <h4 class="modal-title fw-bold text-white mb-0" id="seriesModalTitle">Nome da Série</h4>
+            </div>
+            <button type="button" class="btn-close m-0" data-bs-dismiss="modal" aria-label="Close"></button>
           </div>
-          <div class="modal-body pt-2">
-            <ul class="nav nav-pills mb-3" id="seasonTabs" role="tablist"></ul>
-            <div class="tab-content" id="seasonContent"></div>
+          <div class="modal-body p-4">
+            <!-- Tabs Navigation Row -->
+            <ul class="nav nav-pills mb-4 p-1 bg-black bg-opacity-20 rounded-3 border border-secondary border-opacity-10" id="seasonTabs" role="tablist"></ul>
+            <!-- Episodes Content Panel -->
+            <div class="tab-content bg-black bg-opacity-10 rounded-4 p-2 border border-secondary border-opacity-10" id="seasonContent"></div>
           </div>
         </div>
       </div>
     </div>
 
+    <!-- Cinematic Media Streaming Floating Board Player -->
     <div id="playerContainer" class="player-container">
-        <div class="d-flex justify-content-between align-items-center mb-2">
-            <h5 id="playerTitle" class="m-0 text-white text-truncate pe-3" style="max-width: 80%;">Reproduzindo...</h5>
-            <button id="closePlayer" class="btn btn-sm btn-danger rounded-pill px-3"><i class="bi bi-x-lg me-1"></i>Fechar</button>
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 id="playerTitle" class="m-0 text-white text-truncate fw-bold pe-4" style="max-width: 85%;">Reproduzindo agora...</h5>
+            <button id="closePlayer" class="btn btn-sm btn-danger rounded-pill px-3 fw-bold shadow-sm transition"><i class="bi bi-x-lg me-2"></i>Fechar Player</button>
         </div>
-        <video id="videoPlayer" controls playsinline></video>
-        <div id="playerError" class="text-danger mt-2 small text-center fw-bold"></div>
+        <video id="videoPlayer" controls playsinline autocomplete="off"></video>
+        <div id="playerError" class="text-danger mt-3 small text-center fw-bold bg-danger bg-opacity-10 p-2 rounded-3 border border-danger border-opacity-25"></div>
     </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
     <script>
         (function() {
@@ -119,11 +334,11 @@
             let hls = null;
             let seriesModalInstance = null;
 
+            // Mapping DOM Controls
             const urlInput = document.getElementById('urlInput');
             const loadBtn = document.getElementById('loadBtn');
             const statusDiv = document.getElementById('statusMessage');
             const itemsGrid = document.getElementById('itemsGrid');
-            const categoryBtns = document.querySelectorAll('#categoryFilters button');
             const searchInput = document.getElementById('searchInput');
             const playerContainer = document.getElementById('playerContainer');
             const videoPlayer = document.getElementById('videoPlayer');
@@ -134,17 +349,26 @@
             const paginationBottom = document.getElementById('paginationBottom');
             const itemCount = document.getElementById('itemCount');
 
-            // Gerenciador de Dark Mode
+            // Theme Management Lifecycle
             function initTheme() {
                 const savedTheme = localStorage.getItem('theme') || 'dark';
                 document.documentElement.setAttribute('data-bs-theme', savedTheme);
                 updateThemeIcon(savedTheme);
             }
             function updateThemeIcon(theme) {
-                document.getElementById('themeIcon').className = theme === 'dark' ? 'bi bi-sun-fill' : 'bi bi-moon-stars-fill';
+                const icon = document.getElementById('themeIcon');
+                const btn = document.getElementById('themeToggle');
+                if (theme === 'dark') {
+                    icon.className = 'bi bi-sun-fill text-warning';
+                    btn.className = 'btn btn-outline-light rounded-circle shadow-sm';
+                } else {
+                    icon.className = 'bi bi-moon-stars-fill text-dark';
+                    btn.className = 'btn btn-outline-dark rounded-circle shadow-sm';
+                }
             }
             document.getElementById('themeToggle').addEventListener('click', () => {
-                const newTheme = document.documentElement.getAttribute('data-bs-theme') === 'dark' ? 'light' : 'dark';
+                const currentTheme = document.documentElement.getAttribute('data-bs-theme');
+                const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
                 document.documentElement.setAttribute('data-bs-theme', newTheme);
                 localStorage.setItem('theme', newTheme);
                 updateThemeIcon(newTheme);
@@ -152,51 +376,51 @@
 
             function showStatus(msg, type = 'info') {
                 statusDiv.textContent = msg;
-                statusDiv.className = `alert alert-${type}`;
+                statusDiv.className = `alert alert-${type} border-0 shadow-sm`;
                 statusDiv.style.display = 'block';
             }
 
-            // Engine Inteligente de Categorias e "Cão de Guarda" Nível 1
+            // Engine Inteligente de Categorias e "Cão de Guarda" Nível 1 Otimizado (Prevenção Total de Vazamento)
             function getCategory(url, group, name) {
                 url = (url || '').toLowerCase();
                 group = (group || '').toLowerCase();
                 name = (name || '').toLowerCase();
 
-                // 1. O CÃO DE GUARDA: PRIORIDADE MÁXIMA
-                // Se for um grupo de TV ao vivo ou canal 24h, joga pra aba 'Canais' e encerra!
+                // 1. O CÃO DE GUARDA ABSOLUTO: Bloqueia canais lineares, streams 24h, cine sky e canais adultos na hora!
                 const liveTvKeywords = [
                     '24hrs', '24h', '24 horas', 'cine series', 'cine tv', 'filmes e series', 
                     'telecine', 'hbo', 'sportv', 'premiere', 'espn', 'tnt', 'max', 'disney', 
                     'canais 4k', 'esportes', 'documentários', 'noticias', 'notícia', 'abertos', 'ppv', 
-                    'globo', 'sbt', 'record', 'band'
+                    'globo', 'sbt', 'record', 'band', 'sessão cinema', 'sessao cinema', 
+                    'cine sky', 'cine marvel', 'xxx', 'adulto', 'adultos', '18+'
                 ];
                 
                 if (liveTvKeywords.some(keyword => group.includes(keyword) || name.includes(keyword))) {
                     return 'channel'; 
                 }
 
-                // 2. Verificação pela URL (Padrão Xtream Codes)
+                // 2. Verificação por links de rotas internas de Servidores Xtream Codes API
                 if (url.includes('/movie/')) return 'movie';
                 if (url.includes('/series/')) return 'series';
                 if (url.includes('/live/')) return 'channel';
 
-                // 3. Verificação por extensão de vídeo (VODs)
+                // 3. Verificação por extensões de mídias de vídeo direto de arquivos sob demanda (VOD)
                 if (url.match(/\.(mp4|mkv|avi)$/i)) {
                     if (group.includes('serie') || group.includes('série') || name.match(/[S|T]\d+[E|x]\d+/i)) return 'series';
                     return 'movie';
                 }
 
-                // 4. Detecção semântica final
+                // 4. Detecção semântica contextual secundária
                 if (group.includes('vod') || group.includes('lançamento') || group.includes('cinema') || group.includes('filme')) return 'movie';
                 if (group.includes('série') || group.includes('serie') || group.includes('temporada')) return 'series';
 
-                // Se nada bater, por padrão é canal ao vivo
                 return 'channel';
             }
 
-            // O MÁGICO: Agrupador de Séries
+            // Engine de Processamento e Compactação Estrutural de Listas M3U
             function processAndGroupM3U(text) {
-                const lines = text.split('\n');
+                const lines = text.split('
+');
                 const rawItems = [];
                 let currentItem = null;
                 
@@ -209,11 +433,11 @@
                         while ((match = attrRegex.exec(line)) !== null) attrs[match[1]] = match[2];
                         
                         const title = line.substring(line.indexOf(',') + 1).trim();
-                        // Conserta Mixed Content forçando HTTPS na Logo
+                        // Conversão Forçada de Protocolo Inseguro HTTP -> HTTPS para mitigar alertas de Mixed Content
                         let safeLogo = (attrs['tvg-logo'] || '').replace(/^http:\/\//i, 'https://');
                         
                         currentItem = {
-                            name: attrs['tvg-name'] || title || 'Sem Nome',
+                            name: attrs['tvg-name'] || title || 'Canal Sem Nome',
                             logo: safeLogo,
                             group: attrs['group-title'] || 'Geral',
                             url: null
@@ -225,7 +449,6 @@
                     }
                 }
 
-                // Fase 2: Agrupar Séries
                 const processed = [];
                 const seriesMap = {};
 
@@ -234,12 +457,12 @@
                     item.category = cat;
 
                     if (cat === 'series') {
-                        // Tenta achar padrões como: Chaves S01E05, T01 EP 05, S1 E5
+                        // Regex Avançada para Detecção de Padrões: S01E02, S1 E2, Temporada 01 Episódio 02, etc.
                         const regexS0E0 = /(.*?)\s*[-_:]?\s*[S|T]0*(\d+)\s*[-_]?\s*[E|EP|x]\s*0*(\d+)(.*)/i;
                         const match = item.name.match(regexS0E0);
 
                         if (match) {
-                            const seriesName = match[1].trim() || item.group; // Usa o nome ou o grupo
+                            const seriesName = match[1].trim() || item.group;
                             const seasonNum = parseInt(match[2], 10);
                             const episodeNum = parseInt(match[3], 10);
 
@@ -265,10 +488,10 @@
                                 cleanName: `Episódio ${episodeNum} ${match[4] ? '- ' + match[4].trim() : ''}`
                             });
                         } else {
-                            processed.push(item); // Se não bater o regex, envia solto
+                            processed.push(item);
                         }
                     } else {
-                        processed.push(item); // Canais e filmes
+                        processed.push(item);
                     }
                 });
 
@@ -291,28 +514,45 @@
                 const totalItems = filteredItems.length;
                 const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE) || 1;
                 if (currentPage > totalPages) currentPage = totalPages;
-                const pageItems = filteredItems.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+                
+                const startIdx = (currentPage - 1) * ITEMS_PER_PAGE;
+                const endIdx = Math.min(startIdx + ITEMS_PER_PAGE, totalItems);
+                const pageItems = filteredItems.slice(startIdx, endIdx);
 
                 itemsGrid.innerHTML = '';
-                if (pageItems.length === 0) return itemsGrid.innerHTML = `<div class="col-12 text-center text-muted py-5">Nenhum resultado.</div>`;
+                if (pageItems.length === 0) {
+                    itemsGrid.innerHTML = `
+                        <div class="col-12 w-100 text-center py-5 text-muted">
+                            <i class="bi bi-search-heart fs-2 d-block mb-2"></i>
+                            Nenhum resultado corresponde à busca ou filtros aplicados.
+                        </div>`;
+                    itemCount.textContent = `0 resultados`;
+                    updatePagination(1);
+                    return;
+                }
 
                 pageItems.forEach(item => {
                     const col = document.createElement('div');
                     col.className = 'col';
-                    const placeholder = 'https://via.placeholder.com/300x200?text=IPTV';
+                    const placeholder = 'https://via.placeholder.com/300x200?text=Premium+IPTV';
                     
-                    // Se for pasta de série, mostra ícone especial
-                    const folderBadge = item.isSeriesFolder ? `<span class="badge bg-danger position-absolute top-0 end-0 m-2"><i class="bi bi-folder2-open"></i> Série</span>` : '';
+                    const folderBadge = item.isSeriesFolder 
+                        ? `<span class="badge bg-danger position-absolute top-0 end-0 m-2 badge-stream"><i class="bi bi-folder2-open me-1"></i>Série</span>` 
+                        : '';
 
                     col.innerHTML = `
-                        <div class="card item-card h-100 shadow-sm position-relative">
+                        <div class="card item-card h-100 position-relative">
                             ${folderBadge}
                             <div class="img-container">
-                                <img src="${item.logo || placeholder}" loading="lazy" onerror="this.src='${placeholder}';">
+                                <img src="${item.logo || placeholder}" loading="lazy" onerror="this.onerror=null; this.src='${placeholder}';">
                             </div>
-                            <div class="card-body p-2 d-flex flex-column justify-content-between">
-                                <p class="item-name mb-1" title="${item.name}">${item.name}</p>
-                                <span class="badge bg-secondary-subtle text-secondary-emphasis text-truncate" style="font-size:0.7rem;">${item.group}</span>
+                            <div class="card-body p-3 d-flex flex-column justify-content-between">
+                                <div class="mb-2">
+                                    <p class="item-title text-body" title="${item.name}">${item.name}</p>
+                                </div>
+                                <span class="badge bg-secondary-subtle text-secondary-emphasis text-truncate item-meta w-100 text-start px-2 py-1.5" style="border: 1px solid rgba(255,255,255,0.02)">
+                                    ${item.group}
+                                </span>
                             </div>
                         </div>
                     `;
@@ -327,11 +567,11 @@
                     itemsGrid.appendChild(col);
                 });
 
-                itemCount.textContent = `${totalItems} resultados`;
+                itemCount.textContent = `Exibindo de ${startIdx + 1} a ${endIdx} de ${totalItems} resultados mapeados`;
                 updatePagination(totalPages);
             }
 
-            // Interface do Modal de Temporadas
+            // Interface do Modal Inteligente de Séries
             function openSeriesModal(series) {
                 seriesModalInstance = new bootstrap.Modal(document.getElementById('seriesModal'));
                 document.getElementById('seriesModalTitle').textContent = series.name;
@@ -340,27 +580,27 @@
                 const contentContainer = document.getElementById('seasonContent');
                 tabsContainer.innerHTML = ''; contentContainer.innerHTML = '';
 
-                // Ordena temporadas
                 const seasons = Object.keys(series.seasons).map(Number).sort((a,b)=>a-b);
                 
                 seasons.forEach((seasonNum, index) => {
                     const isActive = index === 0 ? 'active' : '';
                     
-                    // Tab Btn
+                    // Render Tab Navigation Pill
                     tabsContainer.innerHTML += `
                         <li class="nav-item" role="presentation">
-                            <button class="nav-link ${isActive} rounded-pill border mx-1" id="tab-s${seasonNum}" data-bs-toggle="pill" data-bs-target="#s${seasonNum}" type="button">
+                            <button class="nav-link ${isActive} rounded-pill border-0 px-3 py-2 fw-medium m-1" id="tab-s${seasonNum}" data-bs-toggle="pill" data-bs-target="#s${seasonNum}" type="button">
                                 Temporada ${seasonNum}
                             </button>
                         </li>`;
                     
-                    // Episodios
+                    // Render Episode Rows Array
                     const episodesList = series.seasons[seasonNum].sort((a,b) => a.epNumber - b.epNumber);
                     let epHtml = `<div class="list-group list-group-flush">`;
                     episodesList.forEach(ep => {
                         epHtml += `
-                            <button class="list-group-item list-group-item-action d-flex justify-content-between align-items-center bg-transparent border-bottom" onclick="window.startEpisode('${ep.url}', '${series.name} - ${ep.cleanName}')">
-                                <span><i class="bi bi-play-circle-fill text-danger me-2"></i> ${ep.cleanName}</span>
+                            <button class="list-group-item list-group-item-action d-flex justify-content-between align-items-center bg-transparent border-bottom border-secondary border-opacity-10 py-3 text-white-50" onclick="window.startEpisode('${ep.url}', '${series.name} - ${ep.cleanName}')">
+                                <span class="fw-medium text-body"><i class="bi bi-play-circle-fill text-danger me-3 fs-5"></i>${ep.cleanName}</span>
+                                <i class="bi bi-chevron-right text-muted small"></i>
                             </button>`;
                     });
                     epHtml += `</div>`;
@@ -374,7 +614,6 @@
                 seriesModalInstance.show();
             }
 
-            // Handler global pro HTML chamar do Modal
             window.startEpisode = function(url, title) {
                 if(seriesModalInstance) seriesModalInstance.hide();
                 playStream(url, title);
@@ -382,72 +621,144 @@
 
             function updatePagination(totalPages) {
                 const render = (p) => `
-                    <div class="d-flex align-items-center gap-1 justify-content-center">
-                        <button class="btn btn-sm btn-outline-secondary" id="${p}Prev" ${currentPage === 1 ? 'disabled' : ''}><i class="bi bi-chevron-left"></i></button>
-                        <input type="number" class="form-control form-control-sm text-center" style="width:60px" id="${p}Jump" value="${currentPage}">
-                        <button class="btn btn-sm btn-outline-secondary" id="${p}Next" ${currentPage === totalPages ? 'disabled' : ''}><i class="bi bi-chevron-right"></i></button>
+                    <div class="d-flex align-items-center gap-1 justify-content-center flex-wrap">
+                        <button class="btn btn-sm btn-outline-secondary px-2.5 rounded-3" id="${p}First" ${currentPage === 1 ? 'disabled' : ''}><i class="bi bi-chevron-double-left"></i></button>
+                        <button class="btn btn-sm btn-outline-secondary px-2.5 rounded-3" id="${p}Prev" ${currentPage === 1 ? 'disabled' : ''}><i class="bi bi-chevron-left"></i></button>
+                        <span class="mx-2 small text-secondary fw-medium">Pág.</span>
+                        <input type="number" class="form-control form-control-sm text-center font-monospace bg-dark text-white border-secondary border-opacity-25 shadow-sm" style="width:65px; border-radius: 6px;" id="${p}Jump" value="${currentPage}">
+                        <span class="mx-2 small text-secondary fw-medium">de ${totalPages}</span>
+                        <button class="btn btn-sm btn-outline-secondary px-2.5 rounded-3" id="${p}Next" ${currentPage === totalPages ? 'disabled' : ''}><i class="bi bi-chevron-right"></i></button>
+                        <button class="btn btn-sm btn-outline-secondary px-2.5 rounded-3" id="${p}Last" ${currentPage === totalPages ? 'disabled' : ''}><i class="bi bi-chevron-double-right"></i></button>
                     </div>`;
+                    
                 paginationTop.innerHTML = render('top');
                 paginationBottom.innerHTML = render('bottom');
 
                 ['top', 'bottom'].forEach(p => {
-                    document.getElementById(`${p}Prev`)?.addEventListener('click', () => { currentPage--; renderPage(); window.scrollTo(0,0); });
-                    document.getElementById(`${p}Next`)?.addEventListener('click', () => { currentPage++; renderPage(); window.scrollTo(0,0); });
-                    document.getElementById(`${p}Jump`)?.addEventListener('change', (e) => { currentPage = parseInt(e.target.value)||1; renderPage(); });
+                    document.getElementById(`${p}First`)?.addEventListener('click', () => { currentPage = 1; renderPage(); window.scrollTo({top: 0, behavior: 'smooth'}); });
+                    document.getElementById(`${p}Prev`)?.addEventListener('click', () => { if (currentPage > 1) { currentPage--; renderPage(); window.scrollTo({top: 0, behavior: 'smooth'}); } });
+                    document.getElementById(`${p}Next`)?.addEventListener('click', () => { if (currentPage < totalPages) { currentPage++; renderPage(); window.scrollTo({top: 0, behavior: 'smooth'}); } });
+                    document.getElementById(`${p}Last`)?.addEventListener('click', () => { currentPage = totalPages; renderPage(); window.scrollTo({top: 0, behavior: 'smooth'}); });
+                    document.getElementById(`${p}Jump`)?.addEventListener('change', (e) => { 
+                        let val = parseInt(e.target.value, 10) || 1;
+                        if(val < 1) val = 1; if(val > totalPages) val = totalPages;
+                        currentPage = val; renderPage(); 
+                    });
                 });
             }
 
             async function loadPlaylist() {
                 let url = urlInput.value.trim();
-                if (!url) return;
-                if(url.includes('output=ts')) url = url.replace('output=ts', 'output=m3u8');
+                if (!url) return showStatus('Insira um link de lista M3U válido antes de prosseguir.', 'warning');
                 
-                loadBtn.disabled = true; loadBtn.innerHTML = 'Processando...';
+                // Correção em Runtime para evitar decodificações e requisições no formato .ts legado
+                if(url.includes('output=ts')) {
+                    url = url.replace('output=ts', 'output=m3u8');
+                    urlInput.value = url;
+                }
+                
+                loadBtn.disabled = true; 
+                loadBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Sincronizando...';
+                showStatus('Realizando download e cripto-análise da estrutura de dados M3U...', 'info');
+                
                 try {
                     const response = await fetch(`${WORKER_URL}?url=${encodeURIComponent(url)}`);
-                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    if (!response.ok) throw new Error(`HTTP Provedor Status ${response.status}`);
                     const data = await response.text();
                     
                     allItems = processAndGroupM3U(data);
-                    showStatus(`${allItems.length} itens (Canais/Filmes/Séries) sincronizados!`, 'success');
+                    showStatus(`Sincronização concluída com sucesso! ${allItems.length} mídias catalogadas na grade.`, 'success');
                     
-                    applyFilters(); renderPage();
+                    applyFilters(); 
+                    renderPage();
                 } catch (error) {
-                    showStatus(`Falha de Conexão: ${error.message}`, 'danger');
+                    showStatus(`Falha Crítica na Conexão CORS Proxy: ${error.message}. Verifique a saúde do seu Worker.`, 'danger');
                 } finally {
-                    loadBtn.disabled = false; loadBtn.innerHTML = 'Carregar Lista';
+                    loadBtn.disabled = false; 
+                    loadBtn.innerHTML = 'Carregar Conteúdo';
                 }
             }
 
+            // Engine Decodificadora de Vídeo do Reprodutor (HLS & Direct Video Control)
             function playStream(url, title) {
-                playerContainer.classList.add('active'); playerTitle.textContent = title; playerErrorDiv.textContent = '';
+                playerContainer.classList.add('active'); 
+                playerTitle.textContent = title; 
+                playerErrorDiv.style.display = 'none';
+                playerErrorDiv.textContent = '';
+                
                 if (hls) { hls.destroy(); hls = null; }
-                videoPlayer.removeAttribute('src'); videoPlayer.load();
+                videoPlayer.removeAttribute('src'); 
+                videoPlayer.load();
 
                 const streamUrl = `${WORKER_URL}/video?url=${encodeURIComponent(url)}`;
                 const isHls = url.toLowerCase().includes('.m3u8') || !url.match(/\.(mp4|mkv|avi|ts)$/i);
 
-                if (isHls && Hls.isSupported()) {
-                    hls = new Hls({ maxMaxBufferLength: 15, enableWorker: true });
-                    hls.loadSource(streamUrl); hls.attachMedia(videoPlayer);
-                    hls.on(Hls.Events.MANIFEST_PARSED, () => videoPlayer.play().catch(e=>console.log('Play bloqueado pelo navegador, aguardando clique.')));
-                    hls.on(Hls.Events.ERROR, (e, data) => { if(data.fatal) playerErrorDiv.textContent = 'Erro de transmissão ou IP bloqueado pelo servidor IPTV.'; });
+                const renderUIError = (msg) => {
+                    playerErrorDiv.textContent = msg;
+                    playerErrorDiv.style.display = 'block';
+                };
+
+                if (isHls) {
+                    if (Hls.isSupported()) {
+                        hls = new Hls({ maxMaxBufferLength: 20, enableWorker: true, lowLatencyMode: true });
+                        hls.loadSource(streamUrl); 
+                        hls.attachMedia(videoPlayer);
+                        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                            videoPlayer.play().catch(() => console.log('Autoplay contido pelo browser. Aguardando gatilho físico.'));
+                        });
+                        hls.on(Hls.Events.ERROR, (e, data) => { 
+                            if(data.fatal) {
+                                renderUIError('Erro de decodificação HLS ou bloqueio de ASN/IP pelo Provedor (HTTP 403).');
+                            } 
+                        });
+                    } else if (videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
+                        videoPlayer.src = streamUrl;
+                        videoPlayer.addEventListener('loadedmetadata', () => videoPlayer.play());
+                    } else {
+                        renderUIError('Seu ecossistema não possui suporte para a decodificação de codecs HLS (.m3u8).');
+                    }
                 } else {
                     videoPlayer.src = streamUrl;
-                    videoPlayer.play().catch(e=> playerErrorDiv.textContent = 'Erro: Clique play no player manualmente.');
+                    videoPlayer.play().catch(e => renderUIError('Falha no Playback do Arquivo de Vídeo Direto: ' + e.message));
                 }
+
+                videoPlayer.onerror = () => {
+                    const err = videoPlayer.error;
+                    if(err) renderUIError(`Erro Nativo do Player [Código ${err.code}]: A transmissão pode estar offline.`);
+                };
             }
 
             closePlayerBtn.addEventListener('click', () => {
-                videoPlayer.pause(); if (hls) hls.destroy(); playerContainer.classList.remove('active');
+                videoPlayer.pause(); 
+                if (hls) { hls.destroy(); hls = null; } 
+                videoPlayer.removeAttribute('src');
+                videoPlayer.load();
+                playerContainer.classList.remove('active');
             });
 
-            categoryBtns.forEach(btn => btn.addEventListener('click', () => {
-                categoryBtns.forEach(b => b.classList.remove('active')); btn.classList.add('active');
-                currentCategory = btn.dataset.category; applyFilters(); renderPage();
-            }));
+            // Listeners dos Filtros de Categoria
+            document.getElementById('categoryFilters').addEventListener('click', (e) => {
+                const btn = e.target.closest('button');
+                if (!btn) return;
+                const btns = document.querySelectorAll('#categoryFilters button');
+                btns.forEach(b => b.classList.remove('active')); 
+                btn.classList.add('active');
+                currentCategory = btn.dataset.category; 
+                applyFilters(); 
+                renderPage();
+            });
 
-            let t; searchInput.addEventListener('input', e => { clearTimeout(t); t = setTimeout(()=>{ currentSearch = e.target.value.trim(); applyFilters(); renderPage(); }, 300); });
+            // Debounce Input Control para a Busca Dinâmica
+            let searchTimeout;
+            searchInput.addEventListener('input', e => { 
+                clearTimeout(searchTimeout); 
+                searchTimeout = setTimeout(() => { 
+                    currentSearch = e.target.value.trim(); 
+                    applyFilters(); 
+                    renderPage(); 
+                }, 300); 
+            });
+
             loadBtn.addEventListener('click', loadPlaylist);
             initTheme();
         })();
