@@ -168,7 +168,7 @@
                     '24hrs', '24h', '24 horas', 'cine series', 'cine tv', 'filmes e series', 
                     'telecine', 'hbo', 'sportv', 'premiere', 'espn', 'tnt', 'max', 'disney', 
                     'canais 4k', 'esportes', 'documentários', 'noticias', 'notícia', 'abertos', 'ppv', 
-                    'globo', 'sbt', 'record', 'band'
+                    'globo', 'sbt', 'record', 'band', 'sessao cinema', 'sessão cinema', 'xxx adultos', 'adultos', 'xxx'
                 ];
                 
                 if (liveTvKeywords.some(keyword => group.includes(keyword) || name.includes(keyword))) {
@@ -424,17 +424,52 @@
                 if (hls) { hls.destroy(); hls = null; }
                 videoPlayer.removeAttribute('src'); videoPlayer.load();
 
-                const streamUrl = `${WORKER_URL}/video?url=${encodeURIComponent(url)}`;
-                const isHls = url.toLowerCase().includes('.m3u8') || !url.match(/\.(mp4|mkv|avi|ts)$/i);
+                // --- INÍCIO DA SOLUÇÃO INTEGRADA DO COMPONENTE .TSX ---
+                // Reescreve inteligentemente fluxos ao vivo para forçar a compatibilidade com HLS.js no navegador
+                let targetUrl = url;
+                if (targetUrl.includes('output=ts')) {
+                    targetUrl = targetUrl.replace('output=ts', 'output=m3u8');
+                } else if (targetUrl.includes('/live/') && targetUrl.endsWith('.ts')) {
+                    targetUrl = targetUrl.substring(0, targetUrl.length - 3) + '.m3u8';
+                } else if (!targetUrl.toLowerCase().includes('.m3u8') && targetUrl.endsWith('.ts')) {
+                    targetUrl = targetUrl.substring(0, targetUrl.length - 3) + '.m3u8';
+                }
 
-                if (isHls && Hls.isSupported()) {
+                // Identifica se a URL resultante é uma playlist m3u8 ou stream HLS reconstruído
+                const isM3u8 = targetUrl.toLowerCase().includes('.m3u8') || targetUrl.toLowerCase().includes('type=m3u8') || targetUrl.toLowerCase().includes('output=m3u8');
+                
+                // Monta o streamUrl passando a URL corrigida pelo proxy CORS do Worker
+                const streamUrl = `${WORKER_URL}/video?url=${encodeURIComponent(targetUrl)}`;
+                // --- FIM DA SOLUÇÃO INTEGRADA ---
+
+                if (isM3u8 && Hls.isSupported()) {
                     hls = new Hls({ maxMaxBufferLength: 15, enableWorker: true });
                     hls.loadSource(streamUrl); hls.attachMedia(videoPlayer);
                     hls.on(Hls.Events.MANIFEST_PARSED, () => videoPlayer.play().catch(e=>console.log('Play bloqueado pelo navegador, aguardando clique.')));
-                    hls.on(Hls.Events.ERROR, (e, data) => { if(data.fatal) playerErrorDiv.textContent = 'Erro de transmissão ou IP bloqueado pelo servidor IPTV.'; });
-                } else {
+                    hls.on(Hls.Events.ERROR, (e, data) => { 
+                        if(data.fatal) {
+                            switch (data.type) {
+                                case Hls.ErrorTypes.NETWORK_ERROR:
+                                    hls.startLoad();
+                                    break;
+                                case Hls.ErrorTypes.MEDIA_ERROR:
+                                    hls.recoverMediaError();
+                                    break;
+                                default:
+                                    playerErrorDiv.textContent = 'Erro de transmissão ou IP bloqueado pelo servidor IPTV.';
+                                    hls.destroy();
+                                    break;
+                            }
+                        } 
+                    });
+                } else if (videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
+                    // Suporte nativo do Safari (iOS/macOS)
                     videoPlayer.src = streamUrl;
-                    videoPlayer.play().catch(e=> playerErrorDiv.textContent = 'Erro: Clique play no player manualmente.');
+                    videoPlayer.play().catch(e=> console.log(e));
+                } else {
+                    // Reprodução direta de VODs (MP4, etc.)
+                    videoPlayer.src = streamUrl;
+                    videoPlayer.play().catch(e=> playerErrorDiv.textContent = 'Este formato pode não ser suportado nativamente pelo navegador. Clique manualmente no play.');
                 }
             }
 
