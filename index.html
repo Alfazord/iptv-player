@@ -420,12 +420,19 @@
             }
 
             function playStream(url, title) {
-                playerContainer.classList.add('active'); playerTitle.textContent = title; playerErrorDiv.textContent = '';
-                if (hls) { hls.destroy(); hls = null; }
-                videoPlayer.removeAttribute('src'); videoPlayer.load();
+                playerContainer.classList.add('active'); 
+                playerTitle.textContent = title; 
+                playerErrorDiv.textContent = '';
+                
+                if (hls) { 
+                    hls.destroy(); 
+                    hls = null; 
+                }
+                
+                videoPlayer.removeAttribute('src'); 
+                videoPlayer.load();
 
-                // --- INÍCIO DA SOLUÇÃO INTEGRADA DO COMPONENTE .TSX ---
-                // Reescreve inteligentemente fluxos ao vivo para forçar a compatibilidade com HLS.js no navegador
+                // Reescreve inteligentemente fluxos ao vivo
                 let targetUrl = url;
                 if (targetUrl.includes('output=ts')) {
                     targetUrl = targetUrl.replace('output=ts', 'output=m3u8');
@@ -435,17 +442,26 @@
                     targetUrl = targetUrl.substring(0, targetUrl.length - 3) + '.m3u8';
                 }
 
-                // Identifica se a URL resultante é uma playlist m3u8 ou stream HLS reconstruído
                 const isM3u8 = targetUrl.toLowerCase().includes('.m3u8') || targetUrl.toLowerCase().includes('type=m3u8') || targetUrl.toLowerCase().includes('output=m3u8');
                 
                 // Monta o streamUrl passando a URL corrigida pelo proxy CORS do Worker
                 const streamUrl = `${WORKER_URL}/video?url=${encodeURIComponent(targetUrl)}`;
-                // --- FIM DA SOLUÇÃO INTEGRADA ---
 
                 if (isM3u8 && Hls.isSupported()) {
-                    hls = new Hls({ maxMaxBufferLength: 15, enableWorker: true });
-                    hls.loadSource(streamUrl); hls.attachMedia(videoPlayer);
+                    // CONFIGURAÇÃO DE SEGURANÇA E CACHE DO HLS.JS (INCLUINDO withCredentials)
+                    hls = new Hls({ 
+                        maxMaxBufferLength: 15, 
+                        enableWorker: true,
+                        xhrSetup: function(xhr) {
+                            xhr.withCredentials = false;
+                        }
+                    });
+                    
+                    hls.loadSource(streamUrl); 
+                    hls.attachMedia(videoPlayer);
+                    
                     hls.on(Hls.Events.MANIFEST_PARSED, () => videoPlayer.play().catch(e=>console.log('Play bloqueado pelo navegador, aguardando clique.')));
+                    
                     hls.on(Hls.Events.ERROR, (e, data) => { 
                         if(data.fatal) {
                             switch (data.type) {
